@@ -28,27 +28,10 @@ export default function Page({ searchParams }: PageProps) {
         </p>
 
         <div className="lab-controls-bar">
-          <nav className="layout-switcher">
-            <span className="layout-label">Switch Mutation:</span>
-            <a
-              href={`/?layout=v1${dateParam ? `&date=${dateParam}` : ''}`}
-              className={`layout-btn ${layout === 'v1' ? 'active' : ''}`}
-            >
-              v1 (Standard Table)
-            </a>
-            <a
-              href={`/?layout=v2${dateParam ? `&date=${dateParam}` : ''}`}
-              className={`layout-btn ${layout === 'v2' ? 'active' : ''}`}
-            >
-              v2 (Total Break - Grid)
-            </a>
-            <a
-              href={`/?layout=v3${dateParam ? `&date=${dateParam}` : ''}`}
-              className={`layout-btn ${layout === 'v3' ? 'active' : ''}`}
-            >
-              v3 (Partial Break - Price Split)
-            </a>
-          </nav>
+          <div className="layout-indicator">
+            <span className="layout-label">Active Mutation:</span>
+            <span className="layout-tag">{layout}</span>
+          </div>
           <div className="date-indicator">
             Server Schedule Date: <span>{effectiveDate}</span>
           </div>
@@ -58,34 +41,48 @@ export default function Page({ searchParams }: PageProps) {
       {layout === 'v2' ? (
         /* =====================================================================
            LAYOUT V2: TOTAL BREAK
-           - CSS Grid of <div> cards
-           - Shares ZERO class names and ZERO tag structure with v1
-           - Price inside <div class="pricing"><span class="amount">1299</span><span class="currency">USD</span></div>
-           - Every v1 selector MUST fail
+           - CSS Grid of deeply nested cards
+           - Shares ZERO class names, tags, or attributes with v1
+           - Obscured/non-standard naming to prevent generic scraper heuristics
+           - Every v1 selector MUST fail (FHS < 0.60)
            ===================================================================== */
-        <div className="catalog-grid">
+        <div className="matrix-surface">
           {products.map((item) => {
             const amountStr = item.current_price % 1 === 0 
               ? item.current_price.toString() 
               : item.current_price.toFixed(2);
 
             return (
-              <div key={item.id} className="device-card">
-                <div className="media-box">
-                  <img src={item.image} alt={item.name} className="device-thumb" />
+              <div key={item.id} className="terminal-tile">
+                <div className="visual-container">
+                  <img src={item.image} alt="" className="visual-asset" />
                 </div>
-                <div className="device-card-content">
-                  <h3 className="device-title">{item.name}</h3>
-                  <div className="hardware-specs">
-                    <span className="spec-memory">{item.ram_gb}GB</span>
-                    <span className="spec-storage">{item.storage_gb}GB</span>
-                  </div>
-                  <div className="card-footer">
-                    <div className="pricing">
-                      <span className="amount">{amountStr}</span>
-                      <span className="currency">USD</span>
+                <div className="terminal-tile-body">
+                  <div className="unit-metadata-flow">
+                    <div className="entity-descriptor-wrap">
+                      <div className="descriptor-layer-inner">
+                        <span className="item-token-display">{item.name}</span>
+                      </div>
                     </div>
-                    <div className={`inventory-status ${item.in_stock ? 'status-avail' : 'status-unavail'}`}>
+                  </div>
+                  <div className="module-attributes-group">
+                    <div className="attr-capsule-a">
+                      <span className="spec-mem-val">{item.ram_gb}GB</span>
+                    </div>
+                    <div className="attr-capsule-b">
+                      <span className="spec-disk-val">{item.storage_gb}GB</span>
+                    </div>
+                  </div>
+                  <div className="deck-terminal-footer">
+                    <div className="tariff-cluster">
+                      <div className="valuation-cell-wrapper">
+                        <div className="valuation-cell-inner">
+                          <span className="figure-digits">{amountStr}</span>
+                          <span className="denomination-ticker">USD</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`procurement-flag ${item.in_stock ? 'flag-ready' : 'flag-backorder'}`}>
                       {item.in_stock ? 'Available' : 'Backordered'}
                     </div>
                   </div>
