@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+/* ==========================================================================================
+   Master Weaver — design tokens. Doc 05 §2.
+
+   The governing rule is restraint: one accent used sparingly, hairline borders instead of
+   shadows, one spacing scale. No gradients, no glassmorphism, no animated backgrounds.
+
+   Tokens are declared as plain custom properties on :root and referenced through `@theme inline`,
+   so the Day 5 dark mode (doc 05 §7) is a token swap — redefine these values under a `.dark`
+   selector and never restyle a component.
+   ========================================================================================== */
+
+:root {
+  /* --- Surfaces & ink — §2.1 (light column) ------------------------------------------- */
+  --plane: #f8fafc; /* slate-50  · page plane */
+  --surface: #ffffff; /* white     · card surface */
+  --raised: #ffffff; /* white     · dropdown, tooltip */
+  --hairline: #e2e8f0; /* slate-200 · every border, always 1px */
+  --ink: #0f172a; /* slate-900 · primary ink */
+  --ink-secondary: #475569; /* slate-600 · secondary ink */
+  --ink-muted: #94a3b8; /* slate-400 · axis, meta, timestamps */
+
+  /* --- Accents — §2.2 ------------------------------------------------------------------ */
+  --accent: #4f46e5; /* indigo-600 · primary action, active nav, focus ring */
+  --accent-hover: #4338ca; /* indigo-700 */
+  --accent-plane: #eef2ff; /* indigo-50  · active nav wash */
+  --success: #059669; /* emerald-600 · restored, positive delta */
+  --success-ink: #047857; /* emerald-700 · text on success-plane */
+  --success-plane: #ecfdf5; /* emerald-50 */
+
+  /* Amber is RESERVED for the healing / attention state and nothing else (§2.2). The moment it
+     appears elsewhere the healing state stops reading as an event — and that state is the
+     centerpiece of the demo. */
+  --healing: #f59e0b; /* amber-500 */
+  --healing-ink: #b45309; /* amber-700 · text on healing-plane */
+  --healing-plane: #fffbeb; /* amber-50 */
+
+  /* --- Status colors — §5.2. Reserved; never a chart series. --------------------------- */
+  --status-good: #0ca30c; /* FHS ≥ 0.95 */
+  --status-warning: #fab219; /* FHS 0.60–0.95 */
+  --status-critical: #d03b3b; /* FHS < 0.60 */
+  --status-critical-plane: #fff1f2; /* rose-50 */
+}
+
+@theme inline {
+  /* Surfaces & ink */
+  --color-plane: var(--plane);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+
+  /* Accents */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-plane: var(--accent-plane);
+  --color-success: var(--success);
+  --color-success-ink: var(--success-ink);
+  --color-success-plane: var(--success-plane);
+  --color-healing: var(--healing);
+  --color-healing-ink: var(--healing-ink);
+  --color-healing-plane: var(--healing-plane);
+
+  /* Status */
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
+  --color-status-critical-plane: var(--status-critical-plane);
+
+  /* --- Geometry — §2.3. Radii: 6 controls · 8 cards · 12 modals · 9999 badges. Nothing else. */
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-modal: 12px;
+  --radius-badge: 9999px;
+
+  /* Exactly one shadow, on genuinely floating layers only (§2.3). */
+  --shadow-floating: 0 4px 12px rgb(15 23 42 / 0.08);
+
+  /* --- Type — §2.4. No display face, no serif, no webfont: a webfont is a network request
+     that can fail in a screen recording. ------------------------------------------------ */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'Cascadia Mono', Consolas, monospace;
+
+  --text-title: 20px; /* page title      / 600 */
+  --text-section: 15px; /* section heading / 600 */
+  --text-body: 14px; /* body            / 400 */
+  --text-cell: 13px; /* table cell      / 400 */
+  --text-meta: 12px; /* meta, timestamp / 400, muted ink */
+  --text-stat: 28px; /* stat-tile value / 600 */
+}
+
+/* ------------------------------------------------------------------------------------------
+   Spacing: 4 · 8 · 12 · 16 · 24 · 32 · 48 only (§2.3). Tailwind's 4px base gives exactly these
+   as 1 · 2 · 3 · 4 · 6 · 8 · 12. Do not reach for 5, 7, 9, 10, 11 or arbitrary values — the
+   consistent vertical rhythm is most of why this reads as finished.
+   ------------------------------------------------------------------------------------------ */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--plane);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Borders are 1px, always. Never 2px (§2.3). */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--hairline);
+  }
+
+  /* Focus ring on every interactive element — indigo-600, 2px offset (§8). */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* The badge and its sub-caption must never reflow; see .badge-crossfade below. */
+  button,
+  [role='tab'] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  /* Healing dot pulse — opacity 1 → 0.55 → 1 over 1.6s, on the DOT only, never the text (§4). */
+  .dot-pulse {
+    animation: weaver-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Badge state transitions cross-fade over 200ms. No slide, no bounce (§4). */
+  .badge-crossfade {
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+}
+
+@keyframes weaver-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Skeletons breathe rather than sweep — no shimmer gradient (§9 forbids gradients). */
+@keyframes weaver-skeleton {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.skeleton {
+  background-color: var(--hairline);
+  animation: weaver-skeleton 1.6s ease-in-out infinite;
+}
+
+/* prefers-reduced-motion: drop the pulse, keep the color (§4). */
+@media (prefers-reduced-motion: reduce) {
+  .dot-pulse,
+  .skeleton {
+    animation: none;
+  }
+
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

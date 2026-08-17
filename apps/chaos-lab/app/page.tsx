@@ -114,8 +114,9 @@ export default function Page({ searchParams }: PageProps) {
             </thead>
             <tbody>
               {products.map((p) => {
-                const wholeVal = Math.floor(p.current_price).toString();
-                const centsVal = `.${p.current_price.toFixed(2).split('.')[1]}`;
+                const parts = p.current_price.toFixed(2).split('.');
+                const wholeVal = parts[0];
+                const centsVal = `.${parts[1]}`;
 
                 return (
                   <tr key={p.id}>

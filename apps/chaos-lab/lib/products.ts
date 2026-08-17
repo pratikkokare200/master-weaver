@@ -150,11 +150,24 @@ export const PRODUCTS: BaseProduct[] = [
 ];
 
 // Price schedule covering Aug 17–23 2026
-// Product 3: 0.89 from Aug 19 (11% drop)
-// Product 7: 1.06 from Aug 20 (rise)
+// Baseline multipliers for all products on Aug 17 (1.0)
+// Product 3 drops to 0.89x from Aug 19
+// Product 7 rises to 1.06x from Aug 20
 export const PRICE_SCHEDULE: PriceScheduleEntry[] = [
+  { product_id: 1, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 2, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 3, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 4, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 5, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 6, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 7, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 8, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 9, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 10, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 11, date: "2026-08-17", multiplier: 1.0 },
+  { product_id: 12, date: "2026-08-17", multiplier: 1.0 },
   { product_id: 3, date: "2026-08-19", multiplier: 0.89 },
-  { product_id: 7, date: "2026-08-20", multiplier: 1.06 }
+  { product_id: 7, date: "2026-08-20", multiplier: 1.06 },
 ];
 
 // Stock schedule:
