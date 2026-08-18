@@ -1,0 +1,31 @@
+{
+  "name": "@weaver/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Layer C, the autonomous engine: queue poller, Bright Data run executor and the 30-minute price cron.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && node --enable-source-maps dist/index.js",
+    "start": "node --enable-source-maps dist/index.js",
+    "seed": "tsx src/seed.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test --test-concurrency=1 \"test/**/*.test.mjs\"",
+    "smoke": "npm run build && node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@weaver/brightdata": "workspace:*",
+    "@weaver/contracts": "workspace:*",
+    "@weaver/validation": "workspace:*",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.5",
+    "@electric-sql/pglite-socket": "^0.2.8",
+    "@types/node": "^24.3.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.2"
+  }
+}
