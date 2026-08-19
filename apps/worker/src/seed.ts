@@ -79,20 +79,30 @@ const GOLDEN_MATCH_THRESHOLD = 1.0;
  * echo of the URL it was collected from. A `number` contract on `price` reads `price.value` — see
  * the note on `ScrapedRow` in @weaver/contracts.
  */
-function listingRow(name: string, price: number, productId: number): ScrapedRow {
+function listingRow(name: string, price: number): ScrapedRow {
   return {
     product_name: name,
     price: { value: price, currency: 'USD', symbol: '$' },
-    in_stock: 'In Stock',
-    product_url: `${CHAOS_LAB_BASE}/p/${productId}`,
+    // A real boolean, not the `"In Stock"` string an earlier draft assumed: this collector coerces
+    // the stock cell for us. The baseline has to mirror what the CLI actually returns or the
+    // golden-set comparison fails on a difference that was never real.
+    in_stock: true,
+    // Constant across every row -- the listing URL itself, echoed back. Recorded because the
+    // baseline should describe the rows as they arrive, not an idealised version of them.
+    product_page_url: LISTINGS_URL,
     input: { url: LISTINGS_URL },
   };
 }
 
 const LISTINGS_CONTRACT: CollectorContract = {
   // Real Bright Data collector, created 2026-08-19 by `scraper create` against LISTINGS_URL.
-  // https://brightdata.com/cp/scrapers/c_mszsi8ga1d4qdmh5wg
-  collector_id: 'c_mszsi8ga1d4qdmh5wg',
+  // https://brightdata.com/cp/scrapers/c_mt006kvtc12l54ywn
+  //
+  // Third generation. The first was built while the account had no active zone, so its generation
+  // pipeline only ever saw a 404 and every run returned `dead_page`. The second saw the real page
+  // but emitted the whole catalogue nested under `laptops` in each row, with fabricated product
+  // links. This one returns flat rows with the contract's own field names and an honest URL.
+  collector_id: 'c_mt006kvtc12l54ywn',
   fields: [
     { name: 'product_name', type: 'text', required: true, min_fill: 0.95 },
     {
@@ -106,11 +116,29 @@ const LISTINGS_CONTRACT: CollectorContract = {
       drift_tolerance: 0.35,
     },
     { name: 'in_stock', type: 'boolean', required: false, min_fill: 0.5 },
-    { name: 'product_url', type: 'url', required: true, min_fill: 0.95, absolute: true },
+    // NO `product_url` field, deliberately. The v1 listing page contains zero anchor tags -- it is a
+    // plain table of names, prices and stock cells with nothing to link to, which is also why
+    // `/p/<id>` 404s. An earlier version of this contract demanded a required, absolute
+    // `product_url` anyway (copied from the shape in test/helpers.mjs), and the collector duly
+    // returned fabricated links of the form `?layout=v1&product=aerobook-pro-14` for every row --
+    // URLs that appear nowhere in the markup. A contract that asks for data the page does not carry
+    // does not measure health, it rewards invention, and every FHS downstream inherits the lie.
+    // Add this field back only alongside a page that actually links to products.
   ],
-  // The Chaos Lab lists 12 products. `min: 5` leaves room for the site to shrink without crying
-  // breakage, while still catching the failure where a selector matches one stray row.
-  row_count: { min: 5, drift_tolerance: 0.5 },
+  // A healthy run returns 144 rows, not 12: the collector emits every product once per discovered
+  // item, so the 12-product catalogue arrives as 12 identical copies of each row. That is accepted
+  // deliberately (the ledger stores CLI output unmodified, and reads de-duplicate) -- but it makes
+  // this rule behave in a way that is worth stating outright.
+  //
+  // Row count scales with the SQUARE of the product count, because both the duplication factor and
+  // the row set come from the same discovery pass. Twelve products give 144 rows; six products give
+  // 36, not 72. So a floor set by halving 144 would not fire until the catalogue had already lost
+  // nearly a third of its products.
+  //
+  // `min: 25` is therefore chosen in product space rather than row space: it is 5 x 5, the same
+  // "fewer than five products is broken regardless of field scores" judgement the flat version of
+  // this contract encoded as `min: 5`. Re-derive it as P x P if the duplication ever changes.
+  row_count: { min: 25, drift_tolerance: 0.5 },
   golden_set: [LISTINGS_URL],
   // One category URL yielding many rows: the baseline asserts the row *set*, not per-row values.
   golden_set_shape: 'listing',
@@ -141,16 +169,22 @@ const REVIEWS_CONTRACT: CollectorContract = {
  * layout, which is what makes it a baseline worth comparing a repair against.
  */
 const LISTINGS_BASELINE: ListingBaselineSummary = {
-  row_count: 12,
-  field_shape: ['product_name', 'price', 'in_stock', 'product_url'],
+  // 144, not 12 -- see the row_count rule above. This records what a healthy run returns, and a
+  // healthy run returns each of the 12 products 12 times.
+  row_count: 144,
+  // Observation, not assertion: `product_page_url` is in the row set but deliberately absent from
+  // the contract, and listing it here is what lets a shape change be spotted if it disappears.
+  field_shape: ['product_name', 'price', 'in_stock', 'product_page_url'],
   sample_rows: [
-    listingRow('AeroBook Pro 14', 1299, 1),
-    listingRow('Zenith Precision 16', 1899, 2),
-    listingRow('Nova Ultralight 13', 1199, 3),
+    listingRow('AeroBook Pro 14', 1299),
+    listingRow('Zenith Precision 16', 1899),
+    listingRow('Nova Ultralight 13', 1199),
   ],
-  // Ordered by URL rather than by name or grid position: a redesign that reorders the listing must
-  // not read as a changed row set.
-  stable_key: 'product_url',
+  // Ordered by name rather than by grid position, so a redesign that reorders the listing does not
+  // read as a changed row set. `product_url` would be the better key -- a name is editable copy and
+  // a URL usually is not -- but this page has no links to key on (see the contract above), and a
+  // stable key that does not exist is worse than an imperfect one that does.
+  stable_key: 'product_name',
 };
 
 interface CollectorSeed {
@@ -169,8 +203,14 @@ const COLLECTORS: CollectorSeed[] = [
   {
     name: 'marketplace-listings',
     targetUrl: LISTINGS_URL,
+    // Kept verbatim in sync with the description passed to `scraper create`: this column records
+    // what the contract was inferred from, so a drift between the two makes the ledger misleading.
     intentPrompt:
-      'Track the name, price, stock status and product link of every laptop on the Chaos Lab marketplace listing page.',
+      'Extract one row per laptop from the product table. Each row must have exactly these three ' +
+      'fields: product_name (the laptop model name), price (the numeric price), in_stock (whether ' +
+      'it is in stock). Return a flat row per laptop - do NOT nest laptops inside an array, and do ' +
+      'NOT repeat the full catalog in every row. Do NOT invent or construct product links or URLs; ' +
+      'the page has no per-product links.',
     contract: LISTINGS_CONTRACT,
     // PAUSED despite carrying a real collector id, because the Bright Data account has no active
     // zone: `brightdata zones` reports none, and with no proxy network to fetch through, every run
