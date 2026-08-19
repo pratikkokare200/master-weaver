@@ -172,7 +172,17 @@ const COLLECTORS: CollectorSeed[] = [
     intentPrompt:
       'Track the name, price, stock status and product link of every laptop on the Chaos Lab marketplace listing page.',
     contract: LISTINGS_CONTRACT,
-    status: 'ACTIVE',
+    // PAUSED despite carrying a real collector id, because the Bright Data account has no active
+    // zone: `brightdata zones` reports none, and with no proxy network to fetch through, every run
+    // comes back as 12 `dead_page` rows and scores FHS 0.00 -> BROKEN. The URL itself is fine (HTTP
+    // 200 from a browser), so this is an account state, not a target problem.
+    //
+    // The seed declares status rather than leaving it to whatever the row happens to hold, so this
+    // is the only place the decision lives -- pausing by hand in SQL would be silently undone by
+    // the next `pnpm --filter @weaver/worker seed`. Flip to ACTIVE once a zone is active AND a
+    // manual `scraper run` has returned real product rows; not before, or the 30-minute cron starts
+    // billing for failures.
+    status: 'PAUSED',
   },
   {
     name: 'product-reviews',
