@@ -127,3 +127,32 @@ score, `jobs.state = 'DONE'`, and no API key anywhere in the logs.
 Graceful shutdown is covered by `test/lifecycle.test.mjs` rather than by the smoke test: Windows has
 no real POSIX signals, and `child.kill('SIGTERM')` there terminates the process without running its
 handler, so a signal-based assertion would prove nothing on this machine.
+
+## Autostart
+
+`scripts/boot-worker.ps1` brings the worker up after a reboot, registered as a Scheduled Task. It
+waits for the Docker daemon, confirms Postgres answers, and then runs the worker in the foreground
+so the task's lifetime *is* the worker's lifetime — which is what makes Task Scheduler's
+restart-on-failure meaningful. A task that spawned the worker detached and exited would report
+success while the worker was dead.
+
+Two things it deliberately does not do:
+
+* **It does not run `supabase start` unconditionally.** Docker Desktop restarts its containers at
+  logon, so the usual case needs no intervention. The CLI responds to one unhealthy container by
+  stopping the entire stack, database included — so running it against a healthy stack risks
+  destroying the thing the script exists to guarantee. It runs only if `pg_isready` fails.
+
+* **It does not spawn via WMI.** `Win32_Process.Create` is the way to escape a *calling shell's*
+  Job Object; Task Scheduler imposes no such constraint, and spawning that way would hand back a
+  process Task Scheduler could neither stop nor restart.
+
+The trigger is **logon, not startup**. Docker Desktop runs in a user session, so a boot-triggered
+task would wait for a daemon that is not coming until someone logs in. For the same reason the task
+runs as the interactive user rather than `SYSTEM`: `SYSTEM` cannot reach Docker Desktop's per-user
+named pipe. Registration therefore needs no elevation.
+
+Requires *Start Docker Desktop when you log in* to be enabled (Docker Desktop → Settings → General).
+
+Logs land in `.logs/` (gitignored): `boot.log` for the startup sequence, `worker.log` and
+`worker.err.log` for the worker itself.
