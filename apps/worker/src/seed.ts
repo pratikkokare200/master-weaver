@@ -18,7 +18,12 @@
  */
 
 import { parseCollectorContract } from '@weaver/contracts';
-import type { CollectorContract, ListingBaselineSummary, ScrapedRow } from '@weaver/contracts';
+import type {
+  CollectorContract,
+  CollectorStatus,
+  ListingBaselineSummary,
+  ScrapedRow,
+} from '@weaver/contracts';
 
 import { resolveSsl } from './config.js';
 import { createPool, describeDatabase, poolQueryable } from './db.js';
@@ -85,7 +90,9 @@ function listingRow(name: string, price: number, productId: number): ScrapedRow 
 }
 
 const LISTINGS_CONTRACT: CollectorContract = {
-  collector_id: 'c_seed_marketplace_listings',
+  // Real Bright Data collector, created 2026-08-19 by `scraper create` against LISTINGS_URL.
+  // https://brightdata.com/cp/scrapers/c_mszsi8ga1d4qdmh5wg
+  collector_id: 'c_mszsi8ga1d4qdmh5wg',
   fields: [
     { name: 'product_name', type: 'text', required: true, min_fill: 0.95 },
     {
@@ -110,6 +117,9 @@ const LISTINGS_CONTRACT: CollectorContract = {
 };
 
 const REVIEWS_CONTRACT: CollectorContract = {
+  // PLACEHOLDER — Bright Data has never heard of this id. `/reviews` 404s until Day 3, so no
+  // collector was created for it; the row it seeds is PAUSED (see COLLECTORS below). Replace with a
+  // real `scraper create` result in the same commit that ships the route.
   collector_id: 'c_seed_product_reviews',
   fields: [
     { name: 'reviewer_name', type: 'text', required: true, min_fill: 0.9 },
@@ -148,6 +158,11 @@ interface CollectorSeed {
   targetUrl: string;
   intentPrompt: string;
   contract: CollectorContract;
+  /**
+   * Only ACTIVE collectors are swept by the 30-minute cron, so this is the switch that decides
+   * whether a seeded row costs credits every half hour or sits inert.
+   */
+  status: CollectorStatus;
 }
 
 const COLLECTORS: CollectorSeed[] = [
@@ -157,6 +172,7 @@ const COLLECTORS: CollectorSeed[] = [
     intentPrompt:
       'Track the name, price, stock status and product link of every laptop on the Chaos Lab marketplace listing page.',
     contract: LISTINGS_CONTRACT,
+    status: 'ACTIVE',
   },
   {
     name: 'product-reviews',
@@ -164,6 +180,13 @@ const COLLECTORS: CollectorSeed[] = [
     intentPrompt:
       'Collect the reviewer name, star rating, title, body and date of every customer review on the Chaos Lab reviews page.',
     contract: REVIEWS_CONTRACT,
+    // PAUSED, and it must stay that way until Day 3: `/reviews` does not exist yet -- the deployed
+    // Chaos Lab answers it with a 404. Its `collector_id` below is still a placeholder rather than
+    // a real `scraper create` result, so an ACTIVE row here would have the cron enqueue a job every
+    // 30 minutes for a collector Bright Data has never heard of, pointed at a page that is not
+    // there, and bury three FAILED runs in the ledger for each one. Flip to ACTIVE in the same
+    // commit that ships the route and the real id.
+    status: 'PAUSED',
   },
 ];
 
@@ -186,7 +209,7 @@ async function upsertCollector(db: Queryable, seed: CollectorSeed): Promise<stri
   const { rows } = await db.query<{ id: string }>(
     `insert into collectors
        (workspace_id, collector_id, name, target_url, intent_prompt, contract, status)
-     values ($1, $2, $3, $4, $5, $6::jsonb, 'ACTIVE')
+     values ($1, $2, $3, $4, $5, $6::jsonb, $7)
      on conflict (collector_id) do update set
        workspace_id  = excluded.workspace_id,
        name          = excluded.name,
@@ -202,6 +225,7 @@ async function upsertCollector(db: Queryable, seed: CollectorSeed): Promise<stri
       seed.targetUrl,
       seed.intentPrompt,
       JSON.stringify(contract),
+      seed.status,
     ],
   );
 
@@ -270,6 +294,7 @@ async function main(): Promise<number> {
         collector_id: seed.contract.collector_id,
         target_url: seed.targetUrl,
         shape: seed.contract.golden_set_shape,
+        status: seed.status,
       });
     }
 
