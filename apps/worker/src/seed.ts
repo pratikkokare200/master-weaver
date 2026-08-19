@@ -212,17 +212,15 @@ const COLLECTORS: CollectorSeed[] = [
       'NOT repeat the full catalog in every row. Do NOT invent or construct product links or URLs; ' +
       'the page has no per-product links.',
     contract: LISTINGS_CONTRACT,
-    // PAUSED despite carrying a real collector id, because the Bright Data account has no active
-    // zone: `brightdata zones` reports none, and with no proxy network to fetch through, every run
-    // comes back as 12 `dead_page` rows and scores FHS 0.00 -> BROKEN. The URL itself is fine (HTTP
-    // 200 from a browser), so this is an account state, not a target problem.
+    // ACTIVE as of 2026-08-19, on evidence rather than optimism: with the `chaos_lab_proxy` zone
+    // live and this collector rebuilt against the real page, a manual scored run returned 144 rows
+    // at FHS 1.000000 (HEALTHY), every contract field at fill_rate 1 and type_pass 1. The cron
+    // sweeps ACTIVE collectors every 30 minutes, so from here the price history accumulates.
     //
-    // The seed declares status rather than leaving it to whatever the row happens to hold, so this
-    // is the only place the decision lives -- pausing by hand in SQL would be silently undone by
-    // the next `pnpm --filter @weaver/worker seed`. Flip to ACTIVE once a zone is active AND a
-    // manual `scraper run` has returned real product rows; not before, or the 30-minute cron starts
-    // billing for failures.
-    status: 'PAUSED',
+    // Status is declared here rather than set by hand in SQL because the seed writes it on every
+    // run: a manual UPDATE would be silently reverted by the next
+    // `pnpm --filter @weaver/worker seed`. Both directions of this switch belong in this file.
+    status: 'ACTIVE',
   },
   {
     name: 'product-reviews',
