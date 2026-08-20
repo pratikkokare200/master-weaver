@@ -3,7 +3,7 @@
  *
  * `LISTINGS_CONTRACT_FIVE_FIELD` is now the active contract: the live collector was healed in place
  * to extract `ram` and `storage`, the heal was approved at the gate, and a confirming run returned
- * both fields on all 144 rows before this was switched on.
+ * both fields on every row before this was switched on.
  *
  * The tests kept their shape through that change, because what they pin is still true and still
  * worth pinning. `preHealRow` is no longer "what the collector returns today" — it is what the

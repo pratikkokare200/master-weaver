@@ -294,9 +294,21 @@ export async function runHealingEpisode(
   const pageMarkdown = await probePageMarkdown(deps, collector.target_url);
 
   // ── The repair loop ───────────────────────────────────────────────────────────────────────
+  //
+  // `before` is scored from the last healthy run's stored rows rather than passed as null, which is
+  // what it used to be. The difference is the whole first bullet of the diagnosis builder's remit:
+  // without it every line read "was unknown filled, now 0%", which is a complaint. With it they read
+  // "was 100% filled, now 0%", which is a specification — and a field that fell from 100 is a very
+  // different instruction from one that was always patchy.
+  //
+  // Null stays legitimate for a collector whose very first run broke: there is genuinely no history
+  // to compare against, and reporting the current state alone is weaker but still actionable.
+  const beforeBreakdown =
+    lastGood && lastGood.rows.length > 0 ? scoreFhs(lastGood.rows, contract) : null;
+
   const evidence = buildEvidence({
     after: input.breakdown,
-    before: null,
+    before: beforeBreakdown,
     contract,
     goodRow,
     badRow,
@@ -564,7 +576,19 @@ async function confirmAgainstGoldenSet(
 async function probePageMarkdown(deps: EpisodeDeps, url: string): Promise<string | null> {
   try {
     const result = await deps.brightdata.probeUrl({ url, format: 'markdown' });
-    const text = typeof result.stdout === 'string' ? result.stdout : null;
+
+    // `data.content`, not `stdout`. The probe runs with `--json`, so stdout is an envelope whose
+    // newlines are JSON-escaped — reading it raw sent the healer literal backslash-n pairs as page
+    // context, which `collapse` cannot fix because they are not whitespace. stdout remains the
+    // fallback for a CLI version that prints the body plainly.
+    const content = (result.data as { content?: unknown } | null)?.content;
+    const text =
+      typeof content === 'string' && content.trim() !== ''
+        ? content
+        : typeof result.stdout === 'string'
+          ? result.stdout
+          : null;
+
     return text && text.trim() !== '' ? text : null;
   } catch {
     return null;

@@ -151,20 +151,24 @@ const LISTINGS_CONTRACT: CollectorContract = {
     // does not measure health, it rewards invention, and every FHS downstream inherits the lie.
     // Add this field back only alongside a page that actually links to products.
   ],
-  // A healthy run returns 144 rows, not 12: the collector emits every product once per discovered
-  // item, so the 12-product catalogue arrives as 12 identical copies of each row. That is accepted
-  // deliberately (the ledger stores CLI output unmodified, and reads de-duplicate) -- but it makes
-  // this rule behave in a way that is worth stating outright.
+  // `min: 5` — one row per product, as of 2026-08-20.
   //
-  // Row count scales with the SQUARE of the product count, because both the duplication factor and
-  // the row set come from the same discovery pass. Twelve products give 144 rows; six products give
-  // 36, not 72. So a floor set by halving 144 would not fire until the catalogue had already lost
-  // nearly a third of its products.
+  // This was 25 until the ram/storage heal, and the change is the previous note's own instruction
+  // being followed rather than a retuning. It read: a healthy run returns 144 rows because the
+  // collector emits every product once per discovered item, row count therefore scales with the
+  // SQUARE of the product count, so the floor is set in product space as 5 x 5 = 25 — "fewer than
+  // five products is broken regardless of field scores". And then: *re-derive it as P x P if the
+  // duplication ever changes.*
   //
-  // `min: 25` is therefore chosen in product space rather than row space: it is 5 x 5, the same
-  // "fewer than five products is broken regardless of field scores" judgement the flat version of
-  // this contract encoded as `min: 5`. Re-derive it as P x P if the duplication ever changes.
-  row_count: { min: 25, drift_tolerance: 0.5 },
+  // It changed. The healed template returns 12 rows for 12 products, flat, so the duplication factor
+  // is now 1 and P x P collapses to P. The judgement behind the number is untouched; only the row
+  // space it is expressed in has moved.
+  //
+  // Worth noting the heal was never asked to fix this — it was asked for `ram` and `storage`, and
+  // rebuilt the extraction cleanly enough to drop the duplication on its way past. A contract floor
+  // calibrated against a defect quietly becomes wrong the moment the defect is repaired, which is an
+  // argument for deriving these numbers from something meaningful rather than from observed output.
+  row_count: { min: 5, drift_tolerance: 0.5 },
   golden_set: [LISTINGS_URL],
   // One category URL yielding many rows: the baseline asserts the row *set*, not per-row values.
   golden_set_shape: 'listing',
@@ -244,7 +248,13 @@ const REVIEWS_CONTRACT: CollectorContract = {
  * layout, which is what makes it a baseline worth comparing a repair against.
  */
 export const LISTINGS_BASELINE: ListingBaselineSummary = {
-  // 12, not 144 -- the DISTINCT product count, deliberately.
+  // 12 -- the DISTINCT product count, deliberately.
+  //
+  // Raw and distinct now agree, because the ram/storage heal dropped the duplication on its way
+  // past. Keeping this in product space is still the right call rather than a coincidence worth
+  // collapsing: `captureListingBaseline` de-duplicates before counting and `compareListingBaseline`
+  // de-duplicates the run it is handed, so the comparison is defined in product space whatever the
+  // collector happens to emit this week.
   //
   // Changed on Day 4 when `captureListingBaseline` landed in @weaver/validation. That function
   // de-duplicates before counting, and `compareListingBaseline` de-duplicates the run it is handed
@@ -312,10 +322,11 @@ export const COLLECTORS: CollectorSeed[] = [
     // scored the collector 5/9 = 0.5556 -- BROKEN -- and ended the healthy price history on a
     // breakage we invented ourselves, which is why it stayed staged for a day.
     contract: LISTINGS_CONTRACT_FIVE_FIELD,
-    // ACTIVE as of 2026-08-19, on evidence rather than optimism: with the `chaos_lab_proxy` zone
-    // live and this collector rebuilt against the real page, a manual scored run returned 144 rows
-    // at FHS 1.000000 (HEALTHY), every contract field at fill_rate 1 and type_pass 1. The cron
-    // sweeps ACTIVE collectors every 15 minutes, so from here the price history accumulates.
+    // ACTIVE on evidence rather than optimism. First proved on 2026-08-19 at 144 rows and FHS
+    // 1.000000 against the three-field contract; re-proved on 2026-08-20 against the five-field
+    // contract, every field at fill_rate 1 and type_pass 1. The row count is 12 rather than 144
+    // from that date on -- see the note on `row_count` above. The cron sweeps ACTIVE collectors
+    // every 15 minutes, so from here the price history accumulates.
     //
     // Status is declared here rather than set by hand in SQL because the seed writes it on every
     // run: a manual UPDATE would be silently reverted by the next

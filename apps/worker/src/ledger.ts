@@ -147,6 +147,27 @@ export async function finishRun(
  * returns", and folding in the runs where it returned three would drag the baseline down to meet
  * the breakage, which is the same self-lowering bar doc 01 section 3.4 warns about for golden
  * baselines. Returns null when there is no history, and the penalty is then skipped.
+ *
+ * **The window stops at the last committed heal**, and that boundary was learned the hard way.
+ *
+ * The ram/storage heal also, unasked, repaired a duplication defect: the collector had been emitting
+ * each of 12 products 12 times, and the new template returns a flat 12. Every field still scored
+ * 1.0 — and the run landed at FHS 0.083, because the penalty divided 12 by a trailing median of 144
+ * and read a 91% row collapse. That number describes a genuine improvement.
+ *
+ * The failure mode is worse than one bad score, because it does not clear. Only HEALTHY runs feed
+ * the median, the penalty guarantees no run is HEALTHY, so the median stays at 144 forever and the
+ * collector is stuck below the BROKEN line by arithmetic. A legitimate step-change in row count was
+ * unrecoverable without someone editing the database.
+ *
+ * `healing_attempts.decision = 'APPROVED'` is the exact marker for "the template was mutated and
+ * saved", so runs before it were produced by a different extractor and are not evidence about this
+ * one. After a heal the window is empty, the median is null, and the penalty is skipped until fresh
+ * runs re-establish it — which is the honest position: we have just changed the thing being
+ * measured and do not yet know what normal looks like.
+ *
+ * Note this is not a way to escape the penalty. Healing is gated by the canary, the golden set and
+ * the breaker; a collector cannot heal its way to a softer row check without passing all three.
  */
 export async function trailingMedianRowCount(
   db: Queryable,
@@ -159,6 +180,13 @@ export async function trailingMedianRowCount(
       where collector_id = $1
         and run_state = 'HEALTHY'
         and finished_at is not null
+        and started_at > coalesce(
+              (select max(a.created_at)
+                 from healing_attempts a
+                 join healing_episodes e on e.id = a.episode_id
+                where e.collector_id = $1
+                  and a.decision = 'APPROVED'),
+              '-infinity'::timestamptz)
       order by started_at desc
       limit $2`,
     [collectorId, window],
