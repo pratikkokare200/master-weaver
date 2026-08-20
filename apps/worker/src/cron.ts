@@ -1,5 +1,5 @@
 /**
- * The 30-minute price cron.
+ * The 15-minute price cron.
  *
  * Enqueues one `scheduled` job per ACTIVE collector, which the poll loop then claims like any
  * other. The cron never scrapes anything itself — keeping it to a single INSERT means a slow run
@@ -17,7 +17,7 @@ import { enqueueScheduledRuns } from './queue.js';
 /**
  * Milliseconds until the next tick aligned to the epoch.
  *
- * With a 30-minute interval that is the next :00 or :30. Returns a full interval rather than 0 when
+ * With a 15-minute interval that is the next :00, :15, :30 or :45. Returns a full interval rather than 0 when
  * already exactly on a boundary, so a boot at exactly :30 does not fire twice.
  */
 export function msUntilNextBoundary(nowMs: number, intervalMs: number): number {

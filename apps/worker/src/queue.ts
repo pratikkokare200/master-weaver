@@ -126,7 +126,7 @@ export async function reapStaleClaims(
 }
 
 /**
- * Enqueue one `scheduled` job per active collector — the 30-minute price cron.
+ * Enqueue one `scheduled` job per active collector — the 15-minute price cron.
  *
  * `NOT EXISTS` is what makes this idempotent, and it is doing more than deduplicating a double
  * tick: if the worker falls behind, or is down for two hours, the collector gets *one* catch-up run

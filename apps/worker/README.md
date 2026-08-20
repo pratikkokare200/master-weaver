@@ -1,7 +1,7 @@
 # @weaver/worker
 
 Layer C, the autonomous engine. A standalone long-running Node process with a queue poller and a
-30-minute cron, and no inbound HTTP surface at all.
+15-minute cron, and no inbound HTTP surface at all.
 
 **Not a Next.js route handler**, deliberately. A healing episode runs 30 to 60 seconds and Vercel
 terminates a serverless function well before that, so a repair interrupted halfway would leave a
@@ -12,7 +12,7 @@ thing to deploy: one process, one command, on Railway, Fly or Render.
 
 ```
 poll loop   every 10s   claim a due job with FOR UPDATE SKIP LOCKED, run it, write the ledger row
-cron loop   every 30m   enqueue one `scheduled` job per ACTIVE collector
+cron loop   every 15m   enqueue one `scheduled` job per ACTIVE collector
 ```
 
 One job is: **run the scraper, score the result, record the run**.

@@ -4,7 +4,7 @@
  *   pnpm --filter @weaver/worker seed
  *
  * Two collectors pointed at the Chaos Lab, and one golden baseline for the listings collector. This
- * is the state the engine needs before the 30-minute cron has anything to sweep: the cron enqueues
+ * is the state the engine needs before the 15-minute cron has anything to sweep: the cron enqueues
  * one `scheduled` job per ACTIVE collector, so an empty `collectors` table means a worker that ticks
  * forever and collects nothing.
  *
@@ -16,6 +16,8 @@
  * specific database; a worker that seeded on startup would rewrite a production contract every time
  * the process restarted.
  */
+
+import { pathToFileURL } from 'node:url';
 
 import { parseCollectorContract } from '@weaver/contracts';
 import type {
@@ -144,6 +146,58 @@ const LISTINGS_CONTRACT: CollectorContract = {
   golden_set_shape: 'listing',
 };
 
+/**
+ * The five-field listings contract — STAGED, NOT ACTIVE.
+ *
+ * The Day-4 audit (finding F2) recorded that only three fields are scored, so a partial break has
+ * almost nothing healthy to contrast against: doc 04 Beat 5 narrates "thirteen other fields still
+ * working" over a contract that declares three. `ram` and `storage` are both present in the v1
+ * markup as `<td class="ram">16 GB</td>` and `<td class="storage">512 GB</td>`, and the Day-1
+ * sample `docs/samples/run_v1.json` shows the CLI extracting both, so this is a collector gap and
+ * not a page gap.
+ *
+ * WHY IT IS NOT ACTIVE. The collector `c_mt006kvtc12l54ywn` does not emit these two fields, and
+ * making it emit them needs either a new collector or a heal. On 2026-08-20 both routes are blocked
+ * by account state, not by code:
+ *
+ *   - `scraper create` succeeds, but every run of the resulting collector returns
+ *     `error_code: "account_suspended"` — "Your account is currently suspended, log in to reactivate".
+ *   - `scraper heal` returns HTTP 500 through all four of the CLI's internal retries.
+ *   - `scraper run` against the EXISTING collector still works, so the price cron is unaffected.
+ *
+ * Activating this contract before the collector can satisfy it would be self-inflicted damage: the
+ * weights are 2+2+2+2+1 = 9 and two required fields would score 0, giving FHS 5/9 = 0.5556 — under
+ * the 0.60 line, so every scheduled run would land in BROKEN and the healthy price history would
+ * stop. Contracts describe what the page carries; they are not a wish list.
+ *
+ * TO ACTIVATE, once the Bright Data account is reactivated:
+ *   1. Heal the collector with the ram/storage description, or create a replacement and repoint
+ *      `collector_id` here (the DB row's uuid is what runs are keyed on, so history survives).
+ *   2. Confirm a run returns both fields.
+ *   3. Swap `LISTINGS_CONTRACT` for this constant in COLLECTORS below and re-seed.
+ *   4. Re-capture the golden baseline — `field_shape` gains `ram` and `storage`.
+ */
+export const LISTINGS_CONTRACT_FIVE_FIELD: CollectorContract = {
+  ...LISTINGS_CONTRACT,
+  fields: [
+    { name: 'product_name', type: 'text', required: true, min_fill: 0.95 },
+    {
+      name: 'price',
+      type: 'number',
+      required: true,
+      min_fill: 0.9,
+      range: [1, 100000],
+      drift_tolerance: 0.35,
+    },
+    // Text, not number. The cell reads "16 GB" and the unit is part of the value the page publishes;
+    // contracting it as a number would make the scorer strip the unit and call a unitless 16 healthy,
+    // which is exactly the kind of silent reinterpretation the FHS exists to catch.
+    { name: 'ram', type: 'text', required: true, min_fill: 0.95 },
+    { name: 'storage', type: 'text', required: true, min_fill: 0.95 },
+    { name: 'in_stock', type: 'boolean', required: false, min_fill: 0.5 },
+  ],
+};
+
 const REVIEWS_CONTRACT: CollectorContract = {
   // PLACEHOLDER — Bright Data has never heard of this id. `/reviews` 404s until Day 3, so no
   // collector was created for it; the row it seeds is PAUSED (see COLLECTORS below). Replace with a
@@ -169,12 +223,23 @@ const REVIEWS_CONTRACT: CollectorContract = {
  * layout, which is what makes it a baseline worth comparing a repair against.
  */
 const LISTINGS_BASELINE: ListingBaselineSummary = {
-  // 144, not 12 -- see the row_count rule above. This records what a healthy run returns, and a
-  // healthy run returns each of the 12 products 12 times.
-  row_count: 144,
+  // 12, not 144 -- the DISTINCT product count, deliberately.
+  //
+  // Changed on Day 4 when `captureListingBaseline` landed in @weaver/validation. That function
+  // de-duplicates before counting, and `compareListingBaseline` de-duplicates the run it is handed
+  // too, so both sides of the comparison are in product space. Pinning 144 here would pin the
+  // duplication itself as the expected shape: a collector that later stopped emitting each row
+  // twelve times -- a genuine improvement -- would fail its own regression test by 91%.
+  //
+  // Note the division of labour. `row_count.min` in the contract above is measured against RAW rows
+  // by the scorer, so it stays in row space at 25. This is measured against distinct rows by the
+  // golden comparison, so it is in product space at 12. The two numbers disagree because they are
+  // counting different things, and that is intended.
+  row_count: 12,
   // Observation, not assertion: `product_page_url` is in the row set but deliberately absent from
   // the contract, and listing it here is what lets a shape change be spotted if it disappears.
-  field_shape: ['product_name', 'price', 'in_stock', 'product_page_url'],
+  // Sorted, matching what `captureListingBaseline` emits, so a re-capture compares equal.
+  field_shape: ['in_stock', 'price', 'product_name', 'product_page_url'],
   sample_rows: [
     listingRow('AeroBook Pro 14', 1299),
     listingRow('Zenith Precision 16', 1899),
@@ -193,7 +258,7 @@ interface CollectorSeed {
   intentPrompt: string;
   contract: CollectorContract;
   /**
-   * Only ACTIVE collectors are swept by the 30-minute cron, so this is the switch that decides
+   * Only ACTIVE collectors are swept by the 15-minute cron, so this is the switch that decides
    * whether a seeded row costs credits every half hour or sits inert.
    */
   status: CollectorStatus;
@@ -215,7 +280,7 @@ const COLLECTORS: CollectorSeed[] = [
     // ACTIVE as of 2026-08-19, on evidence rather than optimism: with the `chaos_lab_proxy` zone
     // live and this collector rebuilt against the real page, a manual scored run returned 144 rows
     // at FHS 1.000000 (HEALTHY), every contract field at fill_rate 1 and type_pass 1. The cron
-    // sweeps ACTIVE collectors every 30 minutes, so from here the price history accumulates.
+    // sweeps ACTIVE collectors every 15 minutes, so from here the price history accumulates.
     //
     // Status is declared here rather than set by hand in SQL because the seed writes it on every
     // run: a manual UPDATE would be silently reverted by the next
@@ -231,7 +296,7 @@ const COLLECTORS: CollectorSeed[] = [
     // PAUSED, and it must stay that way until Day 3: `/reviews` does not exist yet -- the deployed
     // Chaos Lab answers it with a 404. Its `collector_id` below is still a placeholder rather than
     // a real `scraper create` result, so an ACTIVE row here would have the cron enqueue a job every
-    // 30 minutes for a collector Bright Data has never heard of, pointed at a page that is not
+    // 15 minutes for a collector Bright Data has never heard of, pointed at a page that is not
     // there, and bury three FAILED runs in the ledger for each one. Flip to ACTIVE in the same
     // commit that ships the route and the real id.
     status: 'PAUSED',
@@ -372,4 +437,19 @@ async function main(): Promise<number> {
   }
 }
 
-process.exitCode = await main();
+/**
+ * Run only when invoked as a script, never on import.
+ *
+ * This module exports contract and baseline constants that tests and tooling read directly, and a
+ * module that seeds a database as a side effect of being imported is a trap: `import { CONTRACT }`
+ * would open a pool, write rows, and set a non-zero exit code on any machine without DATABASE_URL.
+ * `npm run seed` still behaves identically -- tsx invokes this file as the entry point, so
+ * `process.argv[1]` is this file and the guard passes.
+ */
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  process.exitCode = await main();
+}

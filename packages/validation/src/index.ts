@@ -19,3 +19,30 @@ export { extractFieldValue, unwrapScalar, readPath, isFilled, NULLISH_TOKENS } f
 
 // Type coercion — the per-type parsers behind `type_pass`.
 export { parseNumber, parseBoolean, parseText, parseUrl, normalizeNumericString } from './coerce.js';
+
+// Read-path de-duplication — the live collector emits every product 12 times (Day-3 audit F1).
+// Deliberately NOT wired into the scorer: stored rows stay exactly as the CLI returned them.
+export {
+  dedupeRows,
+  dedupeRowsBy,
+  describeDuplication,
+  canonicalRowKey,
+  rowIdentity,
+  ECHO_KEYS,
+} from './dedupe.js';
+export type { DuplicationReport } from './dedupe.js';
+
+// Golden baselines — capture, compare, and the `golden_set_match_rate` behind every RESTORED.
+export {
+  captureBaseline,
+  captureDetailBaseline,
+  captureListingBaseline,
+  compareBaseline,
+  compareDetailBaseline,
+  compareListingBaseline,
+  evaluateGoldenSet,
+  goldenFailures,
+  EXACT_MATCH_FIELDS,
+  LISTING_SAMPLE_SIZE,
+} from './golden.js';
+export type { GoldenCheck, GoldenUrlResult, GoldenSetResult, GoldenSetEntry } from './golden.js';

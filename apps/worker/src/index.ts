@@ -10,7 +10,7 @@
  * Two loops share the process:
  *
  *   poll loop  — every 10s, claim a due job with FOR UPDATE SKIP LOCKED and execute it
- *   cron loop  — every 30 min, enqueue one `scheduled` job per ACTIVE collector
+ *   cron loop  — every 15 min, enqueue one `scheduled` job per ACTIVE collector
  *
  * Today the executor runs a scrape, scores it against the collector's contract, and writes the run
  * to the ledger. It stops at the score: no diagnosis, no heal, no approval. See `runner.ts`.

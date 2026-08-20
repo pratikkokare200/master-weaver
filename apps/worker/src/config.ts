@@ -21,7 +21,18 @@ export interface WorkerConfig {
   workerId: string;
   /** Queue poll interval. */
   pollIntervalMs: number;
-  /** The price cron. 30 minutes (doc 03 section 8). */
+  /**
+   * The price cron. 15 minutes.
+   *
+   * Halved from 30 on Day 3 (audit finding F3). The cron was meant to start on Day 2 and did not
+   * start until Day 3 11:48 UTC, so the five-day price history doc 03 section 8 calls demo-critical
+   * is now a three-day one. Doubling the sampling rate is the only honest way to recover density --
+   * doc 01 section 12.1a forbids seeding synthetic history, and that rule holds.
+   *
+   * Affordable because it was measured rather than assumed, exactly as section 12.1a requires: one
+   * run against the Chaos Lab moved the balance by 0 credits, across 14 consecutive runs. The
+   * interval is bounded by politeness to the target, not by budget.
+   */
   cronIntervalMs: number;
   /** Fire the cron immediately at boot instead of waiting for the next aligned tick. */
   cronOnBoot: boolean;
@@ -155,7 +166,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, deps: LoadConfigDeps = {}): W
     databaseSsl: resolveSsl(databaseUrl, env),
     workerId: defaultWorkerId(env, deps.hostname ?? 'worker', deps.pid ?? 0),
     pollIntervalMs: readInt(env, 'WORKER_POLL_INTERVAL_MS', 10_000, 250),
-    cronIntervalMs: readInt(env, 'WORKER_CRON_INTERVAL_MS', 30 * 60_000, 60_000),
+    cronIntervalMs: readInt(env, 'WORKER_CRON_INTERVAL_MS', 15 * 60_000, 60_000),
     cronOnBoot: readBool(env, 'WORKER_CRON_ON_BOOT', false),
     claimTimeoutMs: readInt(env, 'WORKER_CLAIM_TIMEOUT_MS', 10 * 60_000, 60_000),
     // TRANSIENT_RETRIES is the number of *retries*, so the total number of claims is one more.

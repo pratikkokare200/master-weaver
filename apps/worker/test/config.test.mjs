@@ -22,7 +22,7 @@ test('a minimal environment produces sensible defaults', () => {
   const config = loadConfig({ ...MINIMAL }, { hostname: 'railway', pid: 42 });
 
   assert.equal(config.pollIntervalMs, 10_000);
-  assert.equal(config.cronIntervalMs, 30 * 60_000, 'the price cron is 30 minutes');
+  assert.equal(config.cronIntervalMs, 15 * 60_000, 'the price cron is 15 minutes');
   assert.equal(config.cronOnBoot, false);
   assert.equal(config.maxAttempts, BREAKER_LIMITS.TRANSIENT_RETRIES + 1);
   assert.match(config.workerId, /^railway#42#[a-z0-9]{6}$/);
