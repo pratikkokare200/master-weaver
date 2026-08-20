@@ -57,8 +57,30 @@ export const STDERR_EXCERPT_CHARS = 2_000;
  * `--auto-approve` is checked at the spawn boundary as well as being absent from the heal wrapper,
  * because a single missed review turns the product back into a thin CLI wrapper. See the comment in
  * `commands.ts › healScraper` for the full reasoning.
- *
- * `--auto-save` is included for the same reason: with `--auto-approve` it commits the healed
- * template without anyone having seen the canary.
  */
-export const FORBIDDEN_FLAGS = ['--auto-approve', '--auto-save'] as const;
+export const FORBIDDEN_FLAGS = ['--auto-approve'] as const;
+
+/**
+ * `--auto-save` is forbidden on every command except `scraper approve`.
+ *
+ * The distinction is the gate, and it is worth stating precisely because the two flags read as a
+ * pair and are not one:
+ *
+ * - On `scraper heal`, `--auto-save` commits the healed template as part of the heal itself. That
+ *   skips the review, which is the product.
+ * - On `scraper approve`, the review has already happened: the canary was scored against the
+ *   collector's contract and cleared `FHS_THRESHOLDS.CANARY_GATE`. `--auto-save` is what makes that
+ *   approval take effect.
+ *
+ * Without it the CLI marks the AI job approved and leaves the collector running the old template,
+ * so the fix silently does not land. That is not a safer failure — the episode goes on to score a
+ * confirmation run against a scraper that was never changed, and quarantines a repair that was
+ * fine. Withholding the flag here buys no safety at all; it just breaks healing.
+ *
+ * `--auto-approve` is unconditionally forbidden above, so the dangerous combination cannot form
+ * regardless of this exception.
+ */
+export const AUTO_SAVE_FLAG = '--auto-save';
+
+/** The only argv prefix permitted to carry {@link AUTO_SAVE_FLAG}. */
+export const AUTO_SAVE_ALLOWED_ON: readonly string[] = ['scraper', 'approve'];

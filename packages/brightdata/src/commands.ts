@@ -18,7 +18,7 @@
 
 import { CLI_INPUT_LIMITS } from '@weaver/contracts';
 
-import { CLI_TIMEOUTS_MS } from './config.js';
+import { AUTO_SAVE_FLAG, CLI_TIMEOUTS_MS } from './config.js';
 import { type CliLogger, runCli } from './spawn.js';
 import {
   type ApproveResponse,
@@ -247,11 +247,18 @@ export interface ApproveHealInput {
 }
 
 /**
- * `brightdata scraper approve <collector_id> --url <url> --json`
+ * `brightdata scraper approve <collector_id> --url <url> --auto-save --json`
  *
  * Only ever called after a canary sample has scored ≥ `FHS_THRESHOLDS.CANARY_GATE` against the
  * collector's contract. This commits the fix in place and cannot be undone — the golden-set
  * confirmation run that follows is what decides RESTORED vs QUARANTINED.
+ *
+ * `--auto-save` is load-bearing and was learned the hard way, on the first heal fired against the
+ * live API. Approving without it returns `{"status":"done"}` and leaves the collector running the
+ * *old* template: the next run comes back with the pre-heal fields, the confirmation scores a
+ * scraper that was never changed, and a perfectly good repair quarantines. The flag is what makes
+ * an approval take effect, and it is scoped to this one command at the spawn boundary — see
+ * `config.ts › AUTO_SAVE_FLAG` for why that is not a weakening of the `--auto-approve` ban.
  */
 export async function approveHeal(
   input: ApproveHealInput,
@@ -263,7 +270,7 @@ export async function approveHeal(
   const timeoutMs = options.timeoutMs ?? CLI_TIMEOUTS_MS.approve;
   const argv = ['scraper', 'approve', input.collectorId];
   if (input.url) argv.push('--url', input.url);
-  argv.push('--timeout', toSeconds(timeoutMs), JSON_FLAG);
+  argv.push(AUTO_SAVE_FLAG, '--timeout', toSeconds(timeoutMs), JSON_FLAG);
 
   return runCli<ApproveResponse>({ ...options, argv, command: 'scraper approve', timeoutMs });
 }

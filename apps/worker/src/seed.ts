@@ -55,11 +55,30 @@ const CHAOS_LAB_BASE = (
 const WORKSPACE_ID = process.env['WEAVER_WORKSPACE_ID'] ?? '11111111-1111-4111-8111-111111111111';
 
 /**
- * The healthy layout. `?layout=v1` is the standard table — `<td class="product-name">`,
- * `<td class="price">$1,299.00</td>`. `v2` is the deliberate breakage the demo triggers, and `v3`
- * the subtle one that splits the price across three spans.
+ * Which Chaos Lab layout the listings collector is pointed at.
+ *
+ * `v1` is the healthy standard table — `<td class="product-name">`, `<td class="price">$1,299.00</td>`.
+ * `v2` is the total break: a CSS grid of nested cards sharing zero class names with v1, so every v1
+ * selector fails and the run lands under 0.60. `v3` is the subtle one, byte-identical to v1 except
+ * the price is split across three spans.
+ *
+ * A knob rather than a hand-edited URL because `target_url` and `golden_set` MUST move together.
+ * The confirmation step looks a baseline up by exact URL (`episode.ts › confirmAgainstGoldenSet`),
+ * so a collector scraping v2 while its golden set still pins v1 would confirm a repair against a
+ * page it no longer scrapes — and a collector pointed at a URL with no baseline row quarantines
+ * every repair, correctly but uselessly. Deriving all three from one constant makes that class of
+ * mistake unrepresentable.
+ *
+ *   CHAOS_LAB_LAYOUT=v2 pnpm --filter @weaver/worker seed
+ *
+ * The baseline seeded alongside is unchanged by the flip, and that is the point rather than an
+ * oversight: v2 publishes the SAME twelve products at the same prices with the same RAM, storage
+ * and stock. Only the markup differs. A golden baseline asserts content, so it survives a redesign
+ * — which is exactly what makes it worth having as the regression test for a repair.
  */
-const LISTINGS_URL = `${CHAOS_LAB_BASE}/?layout=v1`;
+const LISTINGS_LAYOUT = (process.env['CHAOS_LAB_LAYOUT'] ?? 'v1').toLowerCase();
+
+const LISTINGS_URL = `${CHAOS_LAB_BASE}/?layout=${LISTINGS_LAYOUT}`;
 const REVIEWS_URL = `${CHAOS_LAB_BASE}/reviews`;
 
 /**
@@ -81,10 +100,15 @@ const GOLDEN_MATCH_THRESHOLD = 1.0;
  * echo of the URL it was collected from. A `number` contract on `price` reads `price.value` — see
  * the note on `ScrapedRow` in @weaver/contracts.
  */
-function listingRow(name: string, price: number): ScrapedRow {
+function listingRow(name: string, price: number, ram: string, storage: string): ScrapedRow {
   return {
     product_name: name,
     price: { value: price, currency: 'USD', symbol: '$' },
+    // Strings with their units attached, exactly as the RAM and Storage cells publish them. The
+    // contract types both as `text` for the reason spelled out on LISTINGS_CONTRACT_FIVE_FIELD: a
+    // `number` contract would strip the unit and call a unitless 16 healthy.
+    ram,
+    storage,
     // A real boolean, not the `"In Stock"` string an earlier draft assumed: this collector coerces
     // the stock cell for us. The baseline has to mirror what the CLI actually returns or the
     // golden-set comparison fails on a difference that was never real.
@@ -147,35 +171,32 @@ const LISTINGS_CONTRACT: CollectorContract = {
 };
 
 /**
- * The five-field listings contract — STAGED, NOT ACTIVE.
+ * The five-field listings contract — ACTIVE as of 2026-08-20.
  *
- * The Day-4 audit (finding F2) recorded that only three fields are scored, so a partial break has
+ * The Day-4 audit (finding F2) recorded that only three fields were scored, so a partial break had
  * almost nothing healthy to contrast against: doc 04 Beat 5 narrates "thirteen other fields still
- * working" over a contract that declares three. `ram` and `storage` are both present in the v1
- * markup as `<td class="ram">16 GB</td>` and `<td class="storage">512 GB</td>`, and the Day-1
- * sample `docs/samples/run_v1.json` shows the CLI extracting both, so this is a collector gap and
- * not a page gap.
+ * working" over a contract that declared three. `ram` and `storage` are both present in the v1
+ * markup as `<td class="ram">16 GB</td>` and `<td class="storage">512 GB</td>`, so this was a
+ * collector gap and not a page gap.
  *
- * WHY IT IS NOT ACTIVE. The collector `c_mt006kvtc12l54ywn` does not emit these two fields, and
- * making it emit them needs either a new collector or a heal. On 2026-08-20 both routes are blocked
- * by account state, not by code:
+ * HOW THE COLLECTOR CAME TO SATISFY IT. `c_mt006kvtc12l54ywn` was healed in place — a real
+ * `scraper heal` describing the two missing columns, reviewed at the approval gate, then approved.
+ * Not a rebuild: healing keeps the collector id, which is what keeps the run history attached to
+ * the same DB row.
  *
- *   - `scraper create` succeeds, but every run of the resulting collector returns
- *     `error_code: "account_suspended"` — "Your account is currently suspended, log in to reactivate".
- *   - `scraper heal` returns HTTP 500 through all four of the CLI's internal retries.
- *   - `scraper run` against the EXISTING collector still works, so the price cron is unaffected.
+ * This contract stayed staged for a day, and the reason is worth keeping. Activating it before the
+ * collector could satisfy it would have been self-inflicted damage: the weights are 2+2+2+2+1 = 9,
+ * two required fields scoring 0 gives FHS 5/9 = 0.5556 — under the 0.60 line — so every scheduled
+ * run would have landed in BROKEN and the healthy price history would have stopped, on a break we
+ * had manufactured ourselves. Contracts describe what the page carries; they are not a wish list.
  *
- * Activating this contract before the collector can satisfy it would be self-inflicted damage: the
- * weights are 2+2+2+2+1 = 9 and two required fields would score 0, giving FHS 5/9 = 0.5556 — under
- * the 0.60 line, so every scheduled run would land in BROKEN and the healthy price history would
- * stop. Contracts describe what the page carries; they are not a wish list.
- *
- * TO ACTIVATE, once the Bright Data account is reactivated:
- *   1. Heal the collector with the ram/storage description, or create a replacement and repoint
- *      `collector_id` here (the DB row's uuid is what runs are keyed on, so history survives).
- *   2. Confirm a run returns both fields.
- *   3. Swap `LISTINGS_CONTRACT` for this constant in COLLECTORS below and re-seed.
- *   4. Re-capture the golden baseline — `field_shape` gains `ram` and `storage`.
+ * WHAT ACTUALLY BLOCKED IT, corrected. The earlier note here blamed account suspension, citing an
+ * `account_suspended` error from a newly created collector and HTTP 500s from `scraper heal`. That
+ * was wrong, and the dashboard showed no suspension of any kind. The real cause was that the
+ * account had no Web Unlocker zone: `zones --json` listed a single `dc` zone, and the AI generation
+ * and heal pipelines both run through Unlocker infrastructure. Provisioning `chaos_lab_unlocker`
+ * cleared the 500s on the first attempt. Recorded rather than deleted because "the API was flaky"
+ * and "we were missing a prerequisite" lead to opposite decisions the next time it happens.
  */
 export const LISTINGS_CONTRACT_FIVE_FIELD: CollectorContract = {
   ...LISTINGS_CONTRACT,
@@ -222,7 +243,7 @@ const REVIEWS_CONTRACT: CollectorContract = {
  * the field shape across rows, and the first N rows by a stable key. Captured from the healthy v1
  * layout, which is what makes it a baseline worth comparing a repair against.
  */
-const LISTINGS_BASELINE: ListingBaselineSummary = {
+export const LISTINGS_BASELINE: ListingBaselineSummary = {
   // 12, not 144 -- the DISTINCT product count, deliberately.
   //
   // Changed on Day 4 when `captureListingBaseline` landed in @weaver/validation. That function
@@ -239,11 +260,19 @@ const LISTINGS_BASELINE: ListingBaselineSummary = {
   // Observation, not assertion: `product_page_url` is in the row set but deliberately absent from
   // the contract, and listing it here is what lets a shape change be spotted if it disappears.
   // Sorted, matching what `captureListingBaseline` emits, so a re-capture compares equal.
-  field_shape: ['in_stock', 'price', 'product_name', 'product_page_url'],
+  field_shape: ['in_stock', 'price', 'product_name', 'product_page_url', 'ram', 'storage'],
+  // Transcribed from the first run of the healed template on 2026-08-20, not composed by hand.
+  //
+  // `price` is the one value here that is not stable: the Chaos Lab jitters a couple of products
+  // per day, and Nova came back at 1067.11 on the run these were read from. 1199 is kept as the
+  // anchor because a jittered reading makes a worse reference than the base price, and the 35%
+  // drift tolerance on the field covers the spread in both directions. `ram` and `storage` need no
+  // such allowance: neither is an EXACT_MATCH_FIELD, so the assertion on them is that they are
+  // present and parse as text.
   sample_rows: [
-    listingRow('AeroBook Pro 14', 1299),
-    listingRow('Zenith Precision 16', 1899),
-    listingRow('Nova Ultralight 13', 1199),
+    listingRow('AeroBook Pro 14', 1299, '16 GB', '512 GB'),
+    listingRow('Zenith Precision 16', 1899, '32 GB', '1024 GB'),
+    listingRow('Nova Ultralight 13', 1199, '16 GB', '512 GB'),
   ],
   // Ordered by name rather than by grid position, so a redesign that reorders the listing does not
   // read as a changed row set. `product_url` would be the better key -- a name is editable copy and
@@ -264,19 +293,25 @@ interface CollectorSeed {
   status: CollectorStatus;
 }
 
-const COLLECTORS: CollectorSeed[] = [
+export const COLLECTORS: CollectorSeed[] = [
   {
     name: 'marketplace-listings',
     targetUrl: LISTINGS_URL,
     // Kept verbatim in sync with the description passed to `scraper create`: this column records
     // what the contract was inferred from, so a drift between the two makes the ledger misleading.
     intentPrompt:
-      'Extract one row per laptop from the product table. Each row must have exactly these three ' +
-      'fields: product_name (the laptop model name), price (the numeric price), in_stock (whether ' +
+      'Extract one row per laptop from the product table. Each row must have exactly these five ' +
+      'fields: product_name (the laptop model name), price (the numeric price), ram (the RAM cell ' +
+      'text, e.g. "16 GB"), storage (the Storage cell text, e.g. "512 GB"), in_stock (whether ' +
       'it is in stock). Return a flat row per laptop - do NOT nest laptops inside an array, and do ' +
       'NOT repeat the full catalog in every row. Do NOT invent or construct product links or URLs; ' +
       'the page has no per-product links.',
-    contract: LISTINGS_CONTRACT,
+    // Five fields as of 2026-08-20, and the collector genuinely emits all five: `ram` and `storage`
+    // were added by a real `scraper heal` against the live API, approved at the gate, and confirmed
+    // by a run before this line changed. Activating the contract ahead of that evidence would have
+    // scored the collector 5/9 = 0.5556 -- BROKEN -- and ended the healthy price history on a
+    // breakage we invented ourselves, which is why it stayed staged for a day.
+    contract: LISTINGS_CONTRACT_FIVE_FIELD,
     // ACTIVE as of 2026-08-19, on evidence rather than optimism: with the `chaos_lab_proxy` zone
     // live and this collector rebuilt against the real page, a manual scored run returned 144 rows
     // at FHS 1.000000 (HEALTHY), every contract field at fill_rate 1 and type_pass 1. The cron

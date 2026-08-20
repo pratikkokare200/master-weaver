@@ -23,6 +23,8 @@
 import { execFile, spawn } from 'node:child_process';
 
 import {
+  AUTO_SAVE_ALLOWED_ON,
+  AUTO_SAVE_FLAG,
   FORBIDDEN_FLAGS,
   KILL_GRACE_MS,
   MAX_OUTPUT_BYTES,
@@ -70,19 +72,35 @@ export function stripAnsi(text: string): string {
 }
 
 /**
- * Guard against the one flag we never send.
+ * Guard against the flags we never send.
  *
  * The heal wrapper does not pass `--auto-approve`, but this check sits at the boundary every call
  * funnels through, so no future caller can reintroduce it by hand-rolling an argv.
+ *
+ * `--auto-save` is judged against the command rather than banned outright — see
+ * {@link AUTO_SAVE_FLAG}. The command is read from the argv itself rather than taken as a parameter,
+ * deliberately: an `allowAutoSave` argument would be one more thing a caller could pass by hand,
+ * which is the exact hole this function exists to close.
  */
 export function assertNoForbiddenFlags(argv: readonly string[]): void {
+  const isApprove = AUTO_SAVE_ALLOWED_ON.every((word, i) => argv[i] === word);
+
   for (const arg of argv) {
     const flag = arg.split('=')[0] ?? arg;
+
     if ((FORBIDDEN_FLAGS as readonly string[]).includes(flag)) {
       throw new BrightDataCliError(
         'forbidden_flag',
         `Refusing to invoke the Bright Data CLI with ${flag}. Standing at the approval gate is the ` +
           `product — see the comment in commands.ts › healScraper.`,
+      );
+    }
+
+    if (flag === AUTO_SAVE_FLAG && !isApprove) {
+      throw new BrightDataCliError(
+        'forbidden_flag',
+        `Refusing to invoke \`${argv.slice(0, 2).join(' ')}\` with ${AUTO_SAVE_FLAG}. It is ` +
+          `permitted only on \`scraper approve\`, where the canary has already cleared the gate.`,
       );
     }
   }

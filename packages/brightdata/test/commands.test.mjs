@@ -82,7 +82,7 @@ test('heal NEVER passes --auto-approve', async () => {
   assert.ok(!line.includes('--auto-save'), `--auto-save leaked into: ${line}`);
 });
 
-test('no wrapper passes --auto-approve or --auto-save', async () => {
+test('no wrapper anywhere passes --auto-approve', async () => {
   const lines = await Promise.all([
     capture((o) => createScraper({ url: TARGET, description: 'Extract product name, price' }, o)),
     capture((o) => runScraper({ collectorId: COLLECTOR, url: TARGET }, o)),
@@ -94,8 +94,26 @@ test('no wrapper passes --auto-approve or --auto-save', async () => {
   ]);
   for (const line of lines) {
     assert.ok(!line.includes('--auto-approve'), `--auto-approve in: ${line}`);
+  }
+});
+
+test('--auto-save appears on approve and on nothing else', async () => {
+  const others = await Promise.all([
+    capture((o) => createScraper({ url: TARGET, description: 'Extract product name, price' }, o)),
+    capture((o) => runScraper({ collectorId: COLLECTOR, url: TARGET }, o)),
+    capture((o) => healScraper({ collectorId: COLLECTOR, diagnosis: 'broken', url: TARGET }, o)),
+    capture((o) => rejectHeal({ collectorId: COLLECTOR }, o)),
+    capture((o) => probeUrl({ url: TARGET }, o)),
+    capture((o) => getBudget({}, o)),
+  ]);
+  for (const line of others) {
     assert.ok(!line.includes('--auto-save'), `--auto-save in: ${line}`);
   }
+
+  // Approve is the exception, and it is not optional: without the flag the CLI reports the heal
+  // approved while the collector keeps serving the old template, so the fix silently does not land.
+  const approve = await capture((o) => approveHeal({ collectorId: COLLECTOR, url: TARGET }, o));
+  assert.ok(approve.includes('--auto-save'), `approve must commit the template: ${approve}`);
 });
 
 test('the spawn boundary rejects a hand-rolled --auto-approve argv', () => {
@@ -103,12 +121,32 @@ test('the spawn boundary rejects a hand-rolled --auto-approve argv', () => {
     () => assertNoForbiddenFlags(['scraper', 'heal', COLLECTOR, 'x', '--auto-approve', '--json']),
     (error) => error instanceof BrightDataCliError && error.kind === 'forbidden_flag',
   );
+  // Not even on approve, where --auto-save is allowed. The pair is what skips the gate.
   assert.throws(
-    () => assertNoForbiddenFlags(['scraper', 'heal', COLLECTOR, '--auto-save']),
+    () => assertNoForbiddenFlags(['scraper', 'approve', COLLECTOR, '--auto-approve']),
     (error) => error instanceof BrightDataCliError && error.kind === 'forbidden_flag',
   );
   // A benign argv passes through untouched.
   assert.doesNotThrow(() => assertNoForbiddenFlags(['scraper', 'run', COLLECTOR, '--json']));
+});
+
+test('the spawn boundary allows --auto-save ONLY on approve', () => {
+  assert.doesNotThrow(() =>
+    assertNoForbiddenFlags(['scraper', 'approve', COLLECTOR, '--auto-save', '--json']),
+  );
+
+  // On heal it commits the template as part of the heal itself, which skips the review entirely.
+  for (const argv of [
+    ['scraper', 'heal', COLLECTOR, 'price broke', '--auto-save'],
+    ['scraper', 'create', '--auto-save'],
+    ['scraper', 'run', COLLECTOR, '--auto-save'],
+  ]) {
+    assert.throws(
+      () => assertNoForbiddenFlags(argv),
+      (error) => error instanceof BrightDataCliError && error.kind === 'forbidden_flag',
+      `${argv[1]} must not accept --auto-save`,
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------------------------
