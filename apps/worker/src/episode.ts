@@ -28,6 +28,7 @@ import type {
   EpisodeFinalState,
   EpisodeTriggerReason,
   FhsBreakdown,
+  RunState,
   ScrapedRow,
 } from '@weaver/contracts';
 import {
@@ -65,7 +66,8 @@ import {
   settleAttempt,
   upsertBaseline,
 } from './episodes.js';
-import type { CollectorRow } from './ledger.js';
+import { silentNotifier, type Notifier } from './discord.js';
+import { transitionRun, type CollectorRow } from './ledger.js';
 import type { Logger } from './log.js';
 
 export interface EpisodeDeps {
@@ -75,6 +77,8 @@ export interface EpisodeDeps {
   limits?: BreakerLimits;
   /** Global kill switch. The worker keeps running scrapes; it just refuses to heal. */
   killSwitchEnabled?: boolean;
+  /** Fires on RESTORED and QUARANTINED only — never on the transitions in between (doc 03 6.3). */
+  notify?: Notifier;
   now?: () => number;
 }
 
@@ -90,6 +94,15 @@ export interface EpisodeInput {
   /** Operator path only: when the human was asked, and when they answered. */
   operatorPromptedAt?: Date | null;
   operatorActedAt?: Date | null;
+  /**
+   * The run to drive through the healing states as the episode progresses.
+   *
+   * Optional, and the episode is correct without it — the ledger is the record of what happened.
+   * But the live badge reads `runs.run_state`, so supplying this is what makes "Healing…",
+   * "Verifying fix…" and "Committing fix…" appear on screen while the repair is actually happening,
+   * rather than the UI jumping from broken to restored with nothing in between.
+   */
+  runId?: string | null;
 }
 
 export interface EpisodeOutcome {
@@ -133,6 +146,27 @@ export async function runHealingEpisode(
   });
 
   const authorised = authorisedBy(input.trigger);
+
+  /**
+   * Walk the run through one edge of the state machine.
+   *
+   * Best-effort on purpose. A run row that has moved on underneath us — a newer run, a manual
+   * reset — must not abort a repair that is already spending credits. The episode is the record
+   * that matters; this is the live view.
+   */
+  const moveRun = async (decision: { from: RunState; to: RunState }): Promise<void> => {
+    if (!input.runId) return;
+    try {
+      await transitionRun(db, input.runId, decision.from, decision.to);
+    } catch (error) {
+      log.debug('could not move the run to its next state', {
+        run_id: input.runId,
+        from: decision.from,
+        to: decision.to,
+        error,
+      });
+    }
+  };
 
   // A DEGRADED episode reaching this function without an operator behind it would violate the
   // architect's severity decision. The database enforces the trigger/authoriser pairing; this
@@ -182,7 +216,7 @@ export async function runHealingEpisode(
   const finish = async (
     finalState: EpisodeFinalState,
     reason: string,
-    extra: { fhsAfter?: number | null; snapshotAfter?: unknown; attempts: number },
+    extra: { fhsAfter?: number | null; snapshotAfter?: unknown; attempts: number; rejections?: number },
   ): Promise<EpisodeOutcome> => {
     const balanceAfter = await readBalance(deps);
     const creditsSpent =
@@ -210,6 +244,31 @@ export async function runHealingEpisode(
       reason,
     });
 
+    // Every terminal path converges here, which is why the alert lives here and not at each return:
+    // an episode that ends without a notification would be one somebody has to go looking for.
+    const notify = deps.notify ?? silentNotifier;
+    if (finalState === 'RESTORED') {
+      await notify.restored({
+        collectorName: collector.name,
+        fieldsRepaired: input.breakdown.failed_fields,
+        fhsBefore: input.breakdown.fhs,
+        fhsAfter: extra.fhsAfter ?? null,
+        attempts: extra.attempts,
+        rejections: extra.rejections ?? 0,
+        creditsSpent,
+        durationMs,
+      });
+    } else if (finalState === 'QUARANTINED') {
+      await notify.quarantined({
+        collectorName: collector.name,
+        reason,
+        attempts: extra.attempts,
+        fhsBefore: input.breakdown.fhs,
+        creditsSpent,
+        durationMs,
+      });
+    }
+
     return {
       episodeId: episode.id,
       finalState,
@@ -227,6 +286,7 @@ export async function runHealingEpisode(
       rail: firstVerdict.rail,
       reason: firstVerdict.reason,
     });
+    await moveRun({ from: input.trigger === 'BROKEN' ? 'BROKEN' : 'PENDING_OPERATOR', to: 'QUARANTINED' });
     return finish('QUARANTINED', `circuit breaker tripped — ${firstVerdict.reason}`, { attempts: 0 });
   }
 
@@ -247,11 +307,16 @@ export async function runHealingEpisode(
   let attemptNo = 0;
   let rejections = 0;
 
+  // BROKEN -> DIAGNOSING, or PENDING_OPERATOR -> DIAGNOSING. Both edges exist in the frozen table;
+  // which one applies is exactly the severity decision that got us here.
+  await moveRun({ from: input.trigger === 'BROKEN' ? 'BROKEN' : 'PENDING_OPERATOR', to: 'DIAGNOSING' });
+
   // Bounded by the breaker's own rejection rail; the loop condition is a backstop, not the rule.
   for (;;) {
     attemptNo += 1;
 
     const diagnosisDecision = decideAfterDiagnosis(description.length);
+    await moveRun({ from: diagnosisDecision.from, to: diagnosisDecision.next });
     log.info('diagnosis built', {
       episode_id: episode.id,
       attempt_no: attemptNo,
@@ -283,6 +348,8 @@ export async function runHealingEpisode(
       error: healResult.error?.message ?? healResult.stderrExcerpt ?? undefined,
     });
 
+    await moveRun({ from: healDecision.from, to: healDecision.next });
+
     if (healDecision.next === 'QUARANTINED') {
       await noteAttemptFailure(db, {
         attemptId: attempt.id,
@@ -299,16 +366,19 @@ export async function runHealingEpisode(
     }
 
     const canaryRows = canary ?? [];
+    const gateDecision = decideAfterGate(canaryRows.length);
+    await moveRun({ from: gateDecision.from, to: gateDecision.next });
     log.info('proposed fix waiting at the gate', {
       episode_id: episode.id,
       attempt_no: attemptNo,
-      reason: decideAfterGate(canaryRows.length).reason,
+      reason: gateDecision.reason,
     });
 
     // The canary is scored by the SAME function that scored the break. That is what makes the gate
     // mean anything: a fix is judged by the measure it has to satisfy in production.
     const canaryScore = scoreCanary(canaryRows, contract);
     const canaryDecision = decideAfterCanary(canaryScore.fhs);
+    await moveRun({ from: canaryDecision.from, to: canaryDecision.next });
 
     log.info('canary scored', {
       episode_id: episode.id,
@@ -344,9 +414,12 @@ export async function runHealingEpisode(
         deps.limits,
       );
 
+      await moveRun({ from: retry.from, to: retry.next });
+
       if (retry.next === 'QUARANTINED') {
         return finish('QUARANTINED', retry.reason, {
           attempts: attemptNo,
+          rejections,
           fhsAfter: canaryScore.fhs,
         });
       }
@@ -378,6 +451,7 @@ export async function runHealingEpisode(
     });
 
     if (!approveResult.ok) {
+      await moveRun({ from: 'APPROVING', to: 'QUARANTINED' });
       return finish(
         'QUARANTINED',
         `the fix cleared the gate but the approve call failed — ${approveResult.error?.message ?? 'unknown error'}`,
@@ -390,6 +464,7 @@ export async function runHealingEpisode(
     const confirmation = await confirmAgainstGoldenSet(deps, { collector, contract, baselines });
 
     const decision = decideAfterConfirmation({ goldenMatchRate: confirmation.matchRate });
+    await moveRun({ from: decision.from, to: decision.next });
 
     if (decision.next === 'RESTORED') {
       // Baselines refresh only now — never from a degraded or mid-heal run (doc 01 §3.4).
@@ -404,6 +479,7 @@ export async function runHealingEpisode(
 
       return finish('RESTORED', decision.reason, {
         attempts: attemptNo,
+        rejections,
         fhsAfter: confirmation.fhs,
         snapshotAfter: { confirmation_rows: confirmation.entries[0]?.rows?.slice(0, 3) ?? [] },
       });

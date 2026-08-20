@@ -52,6 +52,13 @@ export interface WorkerConfig {
    * emergency, since a scraper that cannot fix itself is still worth the data it collects.
    */
   healingEnabled: boolean;
+  /**
+   * Discord webhook. Null disables notification, which is a valid configuration rather than a
+   * misconfiguration -- the engine's decisions do not depend on anyone being told about them.
+   */
+  discordWebhookUrl: string | null;
+  /** Base URL of the Observation Deck, for the PENDING_OPERATOR deep link (doc 03 6.3). */
+  appBaseUrl: string;
   /** How many recent HEALTHY runs feed the trailing median row count. */
   rowHistoryWindow: number;
   /** Postgres connections to hold open. Supabase caps these per project, so it is a knob. */
@@ -177,6 +184,8 @@ export function loadConfig(env: NodeJS.ProcessEnv, deps: LoadConfigDeps = {}): W
     cronIntervalMs: readInt(env, 'WORKER_CRON_INTERVAL_MS', 15 * 60_000, 60_000),
     cronOnBoot: readBool(env, 'WORKER_CRON_ON_BOOT', false),
     healingEnabled: readBool(env, 'WORKER_HEALING_ENABLED', true),
+    discordWebhookUrl: (env.DISCORD_WEBHOOK_URL ?? '').trim() || null,
+    appBaseUrl: (env.APP_BASE_URL ?? '').trim() || 'http://localhost:3000',
     claimTimeoutMs: readInt(env, 'WORKER_CLAIM_TIMEOUT_MS', 10 * 60_000, 60_000),
     // TRANSIENT_RETRIES is the number of *retries*, so the total number of claims is one more.
     maxAttempts: readInt(env, 'WORKER_MAX_ATTEMPTS', BREAKER_LIMITS.TRANSIENT_RETRIES + 1, 1),

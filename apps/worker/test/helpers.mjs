@@ -10,23 +10,38 @@
  * ours; what is ours is the shape of the statement, and that is what is under test here.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { PGlite } from '@electric-sql/pglite';
 
-export const MIGRATION_PATH = fileURLToPath(
-  new URL('../../../supabase/migrations/0001_initial_schema.sql', import.meta.url),
-);
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url));
+
+/** Kept for the schema tests, which assert against the initial migration by name. */
+export const MIGRATION_PATH = `${MIGRATIONS_DIR}0001_initial_schema.sql`;
 
 export function readMigration() {
   return readFileSync(MIGRATION_PATH, 'utf8');
 }
 
-/** A fresh in-memory database with the migration applied, adapted to the worker's Queryable. */
+/**
+ * Every migration, in filename order.
+ *
+ * Read from the directory rather than listed here on purpose: a test database built from a hardcoded
+ * subset of migrations drifts from production silently, and the drift is only discovered when
+ * something passes locally and fails against Supabase.
+ */
+export function readAllMigrations() {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((name) => name.endsWith('.sql'))
+    .sort()
+    .map((name) => readFileSync(`${MIGRATIONS_DIR}${name}`, 'utf8'));
+}
+
+/** A fresh in-memory database with every migration applied, adapted to the worker's Queryable. */
 export async function freshDb() {
   const pg = await PGlite.create();
-  await pg.exec(readMigration());
+  for (const sql of readAllMigrations()) await pg.exec(sql);
 
   const db = {
     query: async (text, values) => {

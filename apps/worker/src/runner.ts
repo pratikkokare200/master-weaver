@@ -20,11 +20,12 @@
 
 import type { BrightDataClient } from '@weaver/brightdata';
 import { classifyFhs, type FieldScore, type RunState } from '@weaver/contracts';
-import { decideAfterDegraded, decideAfterValidation } from '@weaver/healing';
+import { buildDiagnosis, buildEvidence, decideAfterDegraded, decideAfterValidation } from '@weaver/healing';
 import { captureBaseline, scoreFhs } from '@weaver/validation';
 
+import { silentNotifier, type Notifier } from './discord.js';
 import { runHealingEpisode } from './episode.js';
-import { upsertBaseline } from './episodes.js';
+import { lastHealthyRows, upsertBaseline } from './episodes.js';
 
 import type { Queryable } from './db.js';
 import {
@@ -57,6 +58,8 @@ export interface RunnerDeps {
    * scoring every scrape -- a scraper that cannot repair itself is still worth the data it collects.
    */
   healingEnabled?: boolean;
+  /** Discord. Fires on PENDING_OPERATOR here; the episode owns RESTORED and QUARANTINED. */
+  notify?: Notifier;
 }
 
 export interface RunnableJob {
@@ -83,6 +86,10 @@ export async function executeJob(deps: RunnerDeps, job: RunnableJob): Promise<Jo
       error: `collector ${collector.collector_id} has a contract that does not parse as a CollectorContract`,
     };
   }
+
+  // A repair is an operator's click, not a scrape. It runs against the rows already sitting on the
+  // run that is awaiting approval.
+  if (job.kind === 'repair') return executeRepairJob(deps, collector, contract);
 
   // The ledger row exists before the subprocess does — doc 03 section 4.
   const run = await insertRun(db, { collectorId: collector.id, jobId: job.id });
@@ -168,6 +175,35 @@ export async function executeJob(deps: RunnerDeps, job: RunnableJob): Promise<Jo
       reason: halt.reason,
       failed_fields: breakdown.failed_fields,
     });
+
+    // Build the diagnosis WITHOUT sending it, so the alert can show what would be proposed. An
+    // operator asked to authorise a repair should be able to see the repair. No page context here:
+    // that needs a CLI call, and spending one before anybody has agreed to a repair is backwards —
+    // it is also the first thing the character budget drops, so its absence changes little.
+    const evidence = buildEvidence({
+      after: breakdown,
+      before: null,
+      contract,
+      goodRow: null,
+      badRow: (rows[0] ?? null) as Record<string, unknown> | null,
+      pageMarkdown: null,
+    });
+
+    // "Was 0.95, now 0.80" only means something if the first number is real. Read it from the last
+    // healthy run rather than assuming a perfect 1.0 — a collector that has always run at 0.97 did
+    // not fall from 1.0, and an alert that says it did is inventing the severity.
+    const lastGood = await lastHealthyRows(db, collector.id);
+
+    await (deps.notify ?? silentNotifier).pendingOperator({
+      collectorId: collector.id,
+      collectorName: collector.name,
+      fhsBefore: lastGood?.fhs ?? breakdown.fhs,
+      fhsNow: breakdown.fhs,
+      failedFields: breakdown.failed_fields,
+      healthyFields: evidence.healthyFields,
+      proposedFix: buildDiagnosis(evidence),
+    });
+
     return {
       kind: 'scored',
       runId: run.id,
@@ -190,7 +226,7 @@ export async function executeJob(deps: RunnerDeps, job: RunnableJob): Promise<Jo
 
   try {
     const outcome = await runHealingEpisode(
-      { db, brightdata: deps.brightdata, log: runLog, killSwitchEnabled: false },
+      { db, brightdata: deps.brightdata, log: runLog, killSwitchEnabled: false, notify: deps.notify },
       { collector, contract, trigger: 'BROKEN', breakdown, badRows: rows },
     );
     runLog.info('healing episode finished', {
@@ -240,4 +276,97 @@ async function refreshBaseline(
   } catch (error) {
     input.log.warn('could not refresh the golden baseline', { error });
   }
+}
+
+/**
+ * Execute an operator-authorised repair — the other half of doc 01 section 2.2's
+ * `PENDING_OPERATOR --> DIAGNOSING`.
+ *
+ * Deliberately does NOT scrape. The rows are already on the run awaiting approval, and re-scraping
+ * would spend credits to re-derive a break we have already measured -- with a real chance of
+ * measuring something slightly different and then repairing the wrong thing. The operator approved
+ * a specific, visible break; this repairs that one.
+ *
+ * The score is recomputed from the stored rows rather than read back from `fhs`, so the evidence the
+ * diagnosis is built from and the number that justified the prompt cannot drift apart.
+ */
+async function executeRepairJob(
+  deps: RunnerDeps,
+  collector: Awaited<ReturnType<typeof getCollector>> & object,
+  contract: import('@weaver/contracts').CollectorContract,
+): Promise<JobOutcome> {
+  const { db, log } = deps;
+
+  const pending = await pendingOperatorRun(db, collector.id);
+  if (!pending) {
+    // Not an error worth retrying: either another worker took it, or the operator clicked twice.
+    return {
+      kind: 'permanent',
+      error: `collector ${collector.collector_id} has no run awaiting operator approval`,
+    };
+  }
+
+  const rows = Array.isArray(pending.rows) ? pending.rows : [];
+  const breakdown = scoreFhs(rows, contract);
+
+  const repairLog = log.child({ run_id: pending.id, collector_id: collector.collector_id });
+  repairLog.info('operator authorised a repair', {
+    fhs: breakdown.fhs,
+    failed_fields: breakdown.failed_fields,
+  });
+
+  if (deps.healingEnabled === false) {
+    return { kind: 'permanent', error: 'healing is disabled by the kill switch' };
+  }
+
+  try {
+    const outcome = await runHealingEpisode(
+      { db, brightdata: deps.brightdata, log: repairLog, killSwitchEnabled: false, notify: deps.notify },
+      {
+        collector,
+        contract,
+        trigger: 'DEGRADED',
+        breakdown,
+        badRows: rows,
+        runId: pending.id,
+        operatorPromptedAt: pending.finished_at ?? null,
+        operatorActedAt: new Date(),
+      },
+    );
+
+    repairLog.info('operator repair finished', {
+      episode_id: outcome.episodeId,
+      final_state: outcome.finalState,
+      attempts: outcome.attempts,
+      credits_spent: outcome.creditsSpent,
+      duration_ms: outcome.durationMs,
+    });
+
+    return {
+      kind: 'scored',
+      runId: pending.id,
+      state: outcome.finalState === 'RESTORED' ? 'RESTORED' : 'QUARANTINED',
+      fhs: outcome.fhsAfter ?? breakdown.fhs,
+      rowCount: rows.length,
+    };
+  } catch (error) {
+    repairLog.error('operator repair crashed', { error });
+    return { kind: 'permanent', error: `the repair episode crashed: ${String(error)}` };
+  }
+}
+
+/** The run a collector is currently holding at PENDING_OPERATOR, if any. */
+async function pendingOperatorRun(
+  db: Queryable,
+  collectorId: string,
+): Promise<{ id: string; rows: unknown[]; finished_at: Date | null } | null> {
+  const { rows } = await db.query<{ id: string; rows: unknown[]; finished_at: Date | null }>(
+    `select id, "rows", finished_at
+       from runs
+      where collector_id = $1 and run_state = 'PENDING_OPERATOR'
+      order by started_at desc
+      limit 1`,
+    [collectorId],
+  );
+  return rows[0] ?? null;
 }

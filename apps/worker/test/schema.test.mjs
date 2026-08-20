@@ -71,7 +71,16 @@ test('the enum checks reject values outside the contract arrays', async () => {
   await rejects(`update collectors set status = 'RUNNING' where id = $1`, [collector.id], /status/);
 
   // The contract arrays and the SQL checks are the same lists; if one drifts, these stop matching.
-  assert.deepEqual([...JOB_KINDS], ['manual', 'scheduled', 'confirmation']);
+  // 'repair' is the operator-authorised heal added by migration 0002.
+  assert.deepEqual([...JOB_KINDS], ['manual', 'scheduled', 'confirmation', 'repair']);
+
+  // Stronger than the literal above, and the half that actually catches a one-sided change: every
+  // kind the contract declares must be one the database will accept. A list that agrees with a
+  // stale copy of itself proves nothing.
+  for (const kind of JOB_KINDS) {
+    await db.query(`insert into jobs (collector_id, kind) values ($1, $2)`, [collector.id, kind]);
+  }
+  await db.query(`delete from jobs where collector_id = $1`, [collector.id]);
   assert.deepEqual([...JOB_STATES], ['PENDING', 'CLAIMED', 'DONE', 'FAILED']);
   assert.deepEqual([...COLLECTOR_STATUSES], ['CREATING', 'ACTIVE', 'PAUSED', 'QUARANTINED', 'FAILED']);
 });

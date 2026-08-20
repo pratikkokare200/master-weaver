@@ -22,6 +22,7 @@ import { createBrightDataClient } from '@weaver/brightdata';
 
 import { ConfigError, loadConfig } from './config.js';
 import { createPool, describeDatabase, poolQueryable } from './db.js';
+import { createNotifier } from './discord.js';
 import { createLogger } from './log.js';
 import { startCron } from './cron.js';
 import { runPollLoop } from './poller.js';
@@ -75,6 +76,11 @@ async function main(): Promise<number> {
       }),
   });
 
+  const notify = createNotifier(
+    { webhookUrl: config.discordWebhookUrl, appBaseUrl: config.appBaseUrl },
+    log.child({ component: 'discord' }),
+  );
+
   try {
     const { rows } = await db.query<{ now: string }>('select now()::text as now');
     log.info('worker starting', {
@@ -84,6 +90,7 @@ async function main(): Promise<number> {
       cron_interval_ms: config.cronIntervalMs,
       max_attempts: config.maxAttempts,
       healing_enabled: config.healingEnabled,
+      discord_enabled: notify.enabled,
     });
   } catch (error) {
     log.error('cannot reach the database', { database: describeDatabase(config.databaseUrl), error });
@@ -110,6 +117,7 @@ async function main(): Promise<number> {
     retryBackoffMs: config.retryBackoffMs,
     rowHistoryWindow: config.rowHistoryWindow,
     healingEnabled: config.healingEnabled,
+    notify,
   });
 
   cron.stop();

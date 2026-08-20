@@ -35,6 +35,7 @@ export interface PollerDeps {
   rowHistoryWindow: number;
   /** Doc 01 section 9 kill switch. False: runs still execute, repairs do not. */
   healingEnabled?: boolean;
+  notify?: import('./discord.js').Notifier;
 }
 
 /** Claim and process exactly one job. Returns false when the queue had nothing due. */
@@ -53,6 +54,7 @@ export async function pollOnce(deps: PollerDeps): Promise<boolean> {
         log: jobLog,
         rowHistoryWindow: deps.rowHistoryWindow,
         healingEnabled: deps.healingEnabled,
+        notify: deps.notify,
       },
       job,
     );

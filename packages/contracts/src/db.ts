@@ -83,8 +83,15 @@ export interface ListingBaselineSummary {
 // jobs
 // ---------------------------------------------------------------------------------------------
 
-export const JOB_KINDS = ['manual', 'scheduled', 'confirmation'] as const;
-/** `confirmation` is the post-approval golden-set run that decides RESTORED vs QUARANTINED. */
+export const JOB_KINDS = ['manual', 'scheduled', 'confirmation', 'repair'] as const;
+/**
+ * `confirmation` is the post-approval golden-set run that decides RESTORED vs QUARANTINED.
+ *
+ * `repair` is the operator's click on a PENDING_OPERATOR break (migration 0002). It is the only
+ * kind that does not scrape: the rows are already on the run awaiting approval, and re-scraping
+ * would spend credits to re-derive a break we have measured — with a real chance of measuring
+ * something different and repairing the wrong thing.
+ */
 export type JobKind = (typeof JOB_KINDS)[number];
 
 /**
