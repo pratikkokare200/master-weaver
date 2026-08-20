@@ -2,6 +2,42 @@ import { getProductsForDate } from '@/lib/products';
 
 export const dynamic = 'force-dynamic';
 
+/** The layouts this page knows how to render. Anything else is ignored rather than guessed at. */
+const LAYOUTS = ['v1', 'v2', 'v3'] as const;
+type Layout = (typeof LAYOUTS)[number];
+
+function isLayout(value: string): value is Layout {
+  return (LAYOUTS as readonly string[]).includes(value);
+}
+
+/**
+ * Server-side layout override — `CHAOS_LAB_FORCE_LAYOUT`.
+ *
+ * When set, it beats the `?layout=` query parameter for every request. That inversion is the whole
+ * point, and it exists because of a concrete discovery about the Bright Data API.
+ *
+ * `scraper heal` takes a collector id and a prompt. It does not take a URL — the CLI's help is
+ * explicit that `--url` is "not sent to the heal call; heal only mutates the scraper" — so a heal
+ * always works against whatever target the collector already holds. Our first autonomous episode
+ * therefore healed against `?layout=v1` while we believed it was repairing `?layout=v2`, previewed
+ * a perfect canary on v1 data, and saved a v1 template. Nothing malfunctioned; the URL we passed was
+ * never going to reach the healer.
+ *
+ * A query parameter cannot express a redesign to that API, because changing it changes the address.
+ * A real site redesign keeps its URL and serves different markup, which is exactly what this does:
+ * set the variable, and the URL the collector has always scraped starts returning the broken layout.
+ *
+ * Unset in normal operation, so `?layout=` keeps working for hand testing. Deliberately not
+ * `NEXT_PUBLIC_` — it is read on the server, per request, and never shipped to the browser.
+ */
+function resolveLayout(requested: string | undefined): Layout {
+  const forced = (process.env.CHAOS_LAB_FORCE_LAYOUT ?? '').trim().toLowerCase();
+  if (isLayout(forced)) return forced;
+
+  const asked = (requested ?? 'v1').trim().toLowerCase();
+  return isLayout(asked) ? asked : 'v1';
+}
+
 interface PageProps {
   searchParams: {
     layout?: string;
@@ -10,7 +46,9 @@ interface PageProps {
 }
 
 export default function Page({ searchParams }: PageProps) {
-  const layout = (searchParams?.layout || 'v1').toLowerCase();
+  // The badge below renders this value, so an override is always visible to a human reading the
+  // page. A test harness that lies about its own state is worse than no harness.
+  const layout = resolveLayout(searchParams?.layout);
   const dateParam = searchParams?.date;
   const { products, effectiveDate } = getProductsForDate(dateParam);
 

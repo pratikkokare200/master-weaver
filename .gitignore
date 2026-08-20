@@ -27,3 +27,6 @@ pnpm-debug.log*
 
 # Ad-hoc query scripts against the live ledger. Never part of the build.
 .scratch/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
