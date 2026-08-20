@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { ChartIcon, ChatIcon, JsonIcon, LedgerIcon, TableIcon } from '@/components/icons';
 import type { IconProps } from '@/components/icons';
 import { ChartPanel } from '@/components/panels/ChartPanel';
+import type { HealthPoint, PricePoint } from '@/lib/queries.server';
 import { ChatPanel } from '@/components/panels/ChatPanel';
 import { JsonPanel } from '@/components/panels/JsonPanel';
 import { LedgerPanel } from '@/components/panels/LedgerPanel';
@@ -38,9 +39,20 @@ export interface ObservationTabsProps {
   state: PanelState;
   rows: ProductRow[];
   episodes: LedgerEpisode[];
+  /** Chart series, read from the ledger. Empty renders the panel's own "not enough history" state. */
+  price?: PricePoint[];
+  health?: HealthPoint[];
+  episodeMarks?: { t: string; restored: boolean }[];
 }
 
-export function ObservationTabs({ state, rows, episodes }: ObservationTabsProps) {
+export function ObservationTabs({
+  state,
+  rows,
+  episodes,
+  price = [],
+  health = [],
+  episodeMarks = [],
+}: ObservationTabsProps) {
   const [active, setActive] = useState<TabId>('table');
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -112,7 +124,14 @@ export function ObservationTabs({ state, rows, episodes }: ObservationTabsProps)
             {tab.id === active ? (
               <>
                 {tab.id === 'table' && <TablePanel state={state} rows={rows} />}
-                {tab.id === 'chart' && <ChartPanel state={state} />}
+                {tab.id === 'chart' && (
+                  <ChartPanel
+                    state={state}
+                    price={price}
+                    health={health}
+                    episodeMarks={episodeMarks}
+                  />
+                )}
                 {tab.id === 'json' && <JsonPanel state={state} rows={rows} />}
                 {tab.id === 'chat' && <ChatPanel state={state} />}
                 {tab.id === 'ledger' && <LedgerPanel state={state} episodes={episodes} />}

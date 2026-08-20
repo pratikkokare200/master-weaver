@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { PlusIcon, WorkspaceIcon } from '@/components/icons';
 import { CreditMeter } from '@/components/shell/CreditMeter';
 import { cn } from '@/lib/cn';
-import { COLLECTORS, CREDIT_BALANCE, WORKSPACES } from '@/lib/seed';
+import { CREDIT_BALANCE } from '@/lib/seed';
+import type { CollectorSummary } from '@/lib/seed';
 import type { RunState } from '@weaver/contracts';
 
 /**
@@ -49,7 +50,16 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+export interface SidebarData {
+  collectors: CollectorSummary[];
+  workspaces: { id: string; name: string; collectorIds: string[] }[];
+}
+
+export function SidebarContent({
+  collectors,
+  workspaces,
+  onNavigate,
+}: SidebarData & { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -64,7 +74,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 overflow-y-auto px-2 pb-4" aria-label="Main">
         <SectionLabel>Workspaces</SectionLabel>
         <ul>
-          {WORKSPACES.map((workspace) => (
+          {workspaces.map((workspace) => (
             <li key={workspace.id}>
               <span className="flex items-center gap-2 rounded-control px-3 py-2 text-body text-ink-secondary">
                 <WorkspaceIcon size={15} className="shrink-0 text-ink-muted" />
@@ -79,7 +89,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
         <SectionLabel>Collectors</SectionLabel>
         <ul className="space-y-1">
-          {COLLECTORS.map((collector) => {
+          {collectors.map((collector) => {
             const href = `/c/${collector.id}`;
             const isActive = pathname === href;
             return (
@@ -122,11 +132,11 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 /** Static desktop rail. Hidden below the tablet breakpoint, where the drawer takes over. */
-export function Sidebar() {
+export function Sidebar({ collectors, workspaces }: SidebarData) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-hairline bg-plane md:block">
       <div className="sticky top-0 h-screen">
-        <SidebarContent />
+        <SidebarContent collectors={collectors} workspaces={workspaces} />
       </div>
     </aside>
   );

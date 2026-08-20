@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { CloseIcon, MenuIcon } from '@/components/icons';
 import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
+import type { SidebarData } from '@/components/shell/Sidebar';
 
 /**
  * App frame — 240px fixed rail beside a content column capped at 1440px (doc 05 §3).
@@ -11,7 +12,11 @@ import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
  * Below the tablet breakpoint the rail collapses to a drawer. Responsive matters here only because
  * a judge may open the live URL on a tablet, not because mobile is a use case.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  collectors,
+  workspaces,
+}: { children: React.ReactNode } & SidebarData) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Escape closes the drawer — every dismissible layer should answer to it.
@@ -26,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-plane">
-      <Sidebar />
+      <Sidebar collectors={collectors} workspaces={workspaces} />
 
       {drawerOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -37,7 +42,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setDrawerOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 w-60 border-r border-hairline bg-plane shadow-floating">
-            <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+            <SidebarContent
+              collectors={collectors}
+              workspaces={workspaces}
+              onNavigate={() => setDrawerOpen(false)}
+            />
           </div>
         </div>
       ) : null}
