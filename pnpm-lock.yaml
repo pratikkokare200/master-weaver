@@ -78,6 +78,9 @@ importers:
       '@weaver/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@weaver/healing':
+        specifier: workspace:*
+        version: link:../../packages/healing
       '@weaver/validation':
         specifier: workspace:*
         version: link:../../packages/validation

@@ -44,6 +44,14 @@ export interface WorkerConfig {
   retryBackoffMs: number;
   /** How long shutdown waits for the in-flight job before forcing an exit. */
   shutdownGraceMs: number;
+  /**
+   * The doc 01 section 9 global kill switch, expressed positively.
+   *
+   * Defaults ON, because refusing to heal is not the product. Turning it off leaves the worker
+   * running and scoring every scrape while declining to repair anything -- the right shape for an
+   * emergency, since a scraper that cannot fix itself is still worth the data it collects.
+   */
+  healingEnabled: boolean;
   /** How many recent HEALTHY runs feed the trailing median row count. */
   rowHistoryWindow: number;
   /** Postgres connections to hold open. Supabase caps these per project, so it is a knob. */
@@ -168,6 +176,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, deps: LoadConfigDeps = {}): W
     pollIntervalMs: readInt(env, 'WORKER_POLL_INTERVAL_MS', 10_000, 250),
     cronIntervalMs: readInt(env, 'WORKER_CRON_INTERVAL_MS', 15 * 60_000, 60_000),
     cronOnBoot: readBool(env, 'WORKER_CRON_ON_BOOT', false),
+    healingEnabled: readBool(env, 'WORKER_HEALING_ENABLED', true),
     claimTimeoutMs: readInt(env, 'WORKER_CLAIM_TIMEOUT_MS', 10 * 60_000, 60_000),
     // TRANSIENT_RETRIES is the number of *retries*, so the total number of claims is one more.
     maxAttempts: readInt(env, 'WORKER_MAX_ATTEMPTS', BREAKER_LIMITS.TRANSIENT_RETRIES + 1, 1),

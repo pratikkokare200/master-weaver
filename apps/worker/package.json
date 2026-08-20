@@ -17,6 +17,7 @@
   "dependencies": {
     "@weaver/brightdata": "workspace:*",
     "@weaver/contracts": "workspace:*",
+    "@weaver/healing": "workspace:*",
     "@weaver/validation": "workspace:*",
     "pg": "^8.16.3"
   },

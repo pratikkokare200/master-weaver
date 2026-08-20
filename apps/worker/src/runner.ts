@@ -6,16 +6,25 @@
  *   RUNNING --> VALIDATING --> HEALTHY | DEGRADED | BROKEN
  *   RUNNING --> TRANSIENT_RETRY                       (the CLI call itself failed)
  *
- * and it STOPS THERE. Nothing in this file diagnoses, heals, approves or opens a healing episode.
- * A run that lands in DEGRADED or BROKEN is written to the ledger, logged, and left alone; the
- * state machine that decides what happens next is a separate concern and is not wired up yet.
- * DEGRADED in particular must never trigger a repair unattended (architect decision 3), so the
- * absence of that code here is a feature rather than a gap to be filled in passing.
+ * and then DISPATCHES on the band it landed in:
+ *
+ *   HEALTHY  -> refresh the golden baseline, and only here (doc 01 section 3.4)
+ *   BROKEN   -> open a healing episode autonomously
+ *   DEGRADED -> PENDING_OPERATOR. Notify, and wait for a human. Never heal unattended.
+ *
+ * The DEGRADED branch is the one to read twice. Architect decision 3 makes severity the
+ * authorisation signal, and there is no toggle: a partial break halts here and the repair does not
+ * begin until an operator asks for it. The code path to heal it exists and is deliberately not
+ * reachable from this function.
  */
 
 import type { BrightDataClient } from '@weaver/brightdata';
 import { classifyFhs, type FieldScore, type RunState } from '@weaver/contracts';
-import { scoreFhs } from '@weaver/validation';
+import { decideAfterDegraded, decideAfterValidation } from '@weaver/healing';
+import { captureBaseline, scoreFhs } from '@weaver/validation';
+
+import { runHealingEpisode } from './episode.js';
+import { upsertBaseline } from './episodes.js';
 
 import type { Queryable } from './db.js';
 import {
@@ -43,6 +52,11 @@ export interface RunnerDeps {
   log: Logger;
   /** How many recent HEALTHY runs feed the trailing median row count. */
   rowHistoryWindow: number;
+  /**
+   * The doc 01 section 9 kill switch. False makes the worker refuse to heal while still running and
+   * scoring every scrape -- a scraper that cannot repair itself is still worth the data it collects.
+   */
+  healingEnabled?: boolean;
 }
 
 export interface RunnableJob {
@@ -133,12 +147,97 @@ export async function executeJob(deps: RunnerDeps, job: RunnableJob): Promise<Jo
     duration_ms: result.durationMs,
   };
 
+  const validation = decideAfterValidation(breakdown.fhs);
+  runLog.info('run scored', { ...summary, band, decision: validation.reason });
+
+  // ── HEALTHY ────────────────────────────────────────────────────────────────────────────────
   if (band === 'HEALTHY') {
-    runLog.info('run healthy', summary);
-  } else {
-    // The one line an operator needs to see. Healing is not wired up, so this is where it stops.
-    runLog.warn('run not healthy — healing is not enabled in this build', { band, ...summary });
+    // The ONLY place a baseline is refreshed. Never from a degraded run and never post-heal until
+    // the episode reaches RESTORED, or the quality bar ratchets itself down to meet the breakage
+    // (doc 01 section 3.4).
+    await refreshBaseline(deps, { collectorId: collector.id, contract, rows, log: runLog });
+    return { kind: 'scored', runId: run.id, state: band, fhs: breakdown.fhs, rowCount: rows.length };
+  }
+
+  // ── DEGRADED: halt and ask ─────────────────────────────────────────────────────────────────
+  if (band === 'DEGRADED') {
+    const halt = decideAfterDegraded();
+    await transitionRun(db, run.id, 'DEGRADED', 'PENDING_OPERATOR');
+    runLog.warn('degraded — waiting for an operator', {
+      ...summary,
+      reason: halt.reason,
+      failed_fields: breakdown.failed_fields,
+    });
+    return {
+      kind: 'scored',
+      runId: run.id,
+      state: 'PENDING_OPERATOR',
+      fhs: breakdown.fhs,
+      rowCount: rows.length,
+    };
+  }
+
+  // ── BROKEN: repair autonomously ────────────────────────────────────────────────────────────
+  if (deps.healingEnabled === false) {
+    runLog.warn('broken, but healing is disabled by the kill switch', summary);
+    return { kind: 'scored', runId: run.id, state: band, fhs: breakdown.fhs, rowCount: rows.length };
+  }
+
+  runLog.warn('broken — opening an autonomous healing episode', {
+    ...summary,
+    failed_fields: breakdown.failed_fields,
+  });
+
+  try {
+    const outcome = await runHealingEpisode(
+      { db, brightdata: deps.brightdata, log: runLog, killSwitchEnabled: false },
+      { collector, contract, trigger: 'BROKEN', breakdown, badRows: rows },
+    );
+    runLog.info('healing episode finished', {
+      episode_id: outcome.episodeId,
+      final_state: outcome.finalState,
+      attempts: outcome.attempts,
+      credits_spent: outcome.creditsSpent,
+      duration_ms: outcome.durationMs,
+    });
+  } catch (error) {
+    // A crashed episode must not fail the job: the run itself succeeded and is already recorded,
+    // and re-running the scrape would not fix whatever broke inside the repair loop.
+    runLog.error('healing episode crashed', { error });
   }
 
   return { kind: 'scored', runId: run.id, state: band, fhs: breakdown.fhs, rowCount: rows.length };
+}
+
+/**
+ * Capture or refresh the golden baseline after a healthy run.
+ *
+ * Best-effort: a baseline that could not be written is a weaker regression test next time, not a
+ * reason to fail a run that genuinely succeeded.
+ */
+async function refreshBaseline(
+  deps: RunnerDeps,
+  input: {
+    collectorId: string;
+    contract: import('@weaver/contracts').CollectorContract;
+    rows: unknown[];
+    log: Logger;
+  },
+): Promise<void> {
+  const url = input.contract.golden_set[0];
+  if (!url) return;
+
+  try {
+    const baseline = captureBaseline(input.rows, input.contract);
+    if (!baseline) return;
+
+    await upsertBaseline(deps.db, {
+      collectorId: input.collectorId,
+      url,
+      baseline,
+      shape: input.contract.golden_set_shape,
+    });
+  } catch (error) {
+    input.log.warn('could not refresh the golden baseline', { error });
+  }
 }

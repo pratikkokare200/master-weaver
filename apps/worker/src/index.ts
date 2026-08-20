@@ -83,6 +83,7 @@ async function main(): Promise<number> {
       poll_interval_ms: config.pollIntervalMs,
       cron_interval_ms: config.cronIntervalMs,
       max_attempts: config.maxAttempts,
+      healing_enabled: config.healingEnabled,
     });
   } catch (error) {
     log.error('cannot reach the database', { database: describeDatabase(config.databaseUrl), error });
@@ -108,6 +109,7 @@ async function main(): Promise<number> {
     maxAttempts: config.maxAttempts,
     retryBackoffMs: config.retryBackoffMs,
     rowHistoryWindow: config.rowHistoryWindow,
+    healingEnabled: config.healingEnabled,
   });
 
   cron.stop();

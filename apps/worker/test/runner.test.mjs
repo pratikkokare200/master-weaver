@@ -39,6 +39,10 @@ function deps(brightdata, overrides = {}) {
     maxAttempts: 3,
     retryBackoffMs: 30_000,
     rowHistoryWindow: 5,
+    // Detection-only by default. These tests are about scoring and the queue; the repair loop has
+    // its own suite in episode.test.mjs, and leaving it armed here would have every BROKEN fixture
+    // open an episode as a side effect.
+    healingEnabled: false,
     ...overrides,
   };
 }
@@ -122,21 +126,50 @@ test('the run row exists in RUNNING before the CLI is called', async () => {
   assert.equal(seen[0].finished_at, null);
 });
 
-test('a partial break lands in DEGRADED and is left alone -- healing is not wired up', async () => {
+test('a partial break halts at PENDING_OPERATOR and never heals unattended', async () => {
   // Price empty on 70% of rows: the demo's own break, scoring 0.80 (doc 01 section 3.2).
   const rows = scrapedRows(10, (row, i) => (i < 7 ? { ...row, price: null } : row));
   await enqueueJob(db, collector.id, 'scheduled');
-  await pollOnce(deps(fakeBrightData([cliOk(rows)])));
+
+  // Healing ARMED, deliberately: the point of this test is that arming it changes nothing for a
+  // partial break. Architect decision 3 makes severity the authorisation signal, with no toggle.
+  await pollOnce(deps(fakeBrightData([cliOk(rows)]), { healingEnabled: true }));
 
   const run = await latestRun();
-  assert.equal(run.run_state, 'DEGRADED');
+  assert.equal(run.run_state, 'PENDING_OPERATOR');
   assert.equal(Number(run.fhs), 0.8);
   assert.equal(run.field_scores.find((f) => f.field === 'price').below_min_fill, true);
 
-  // No episode is opened. DEGRADED never heals unattended (architect decision 3).
+  // No episode, even with healing enabled. A human has to ask.
   const { rows: episodes } = await db.query('select count(*)::int as n from healing_episodes');
   assert.equal(episodes[0].n, 0);
   assert.equal((await onlyJob()).state, 'DONE', 'the job still completed -- the run was recorded');
+});
+
+test('a total break opens an autonomous episode when healing is armed', async () => {
+  await enqueueJob(db, collector.id, 'scheduled');
+  await pollOnce(deps(fakeBrightData([cliOk([])]), { healingEnabled: true }));
+
+  const run = await latestRun();
+  assert.equal(run.run_state, 'BROKEN');
+
+  const { rows } = await db.query('select trigger_reason, authorised_by from healing_episodes');
+  assert.equal(rows.length, 1, 'BROKEN repairs itself without being asked');
+  assert.equal(rows[0].trigger_reason, 'BROKEN');
+  assert.equal(rows[0].authorised_by, 'AUTONOMOUS');
+
+  // The fake client has no heal surface, so the episode cannot complete -- but the job still
+  // finishes, because the run itself succeeded and re-running it would not fix the repair loop.
+  assert.equal((await onlyJob()).state, 'DONE');
+});
+
+test('the kill switch leaves detection intact and opens no episode', async () => {
+  await enqueueJob(db, collector.id, 'scheduled');
+  await pollOnce(deps(fakeBrightData([cliOk([])]), { healingEnabled: false }));
+
+  assert.equal((await latestRun()).run_state, 'BROKEN');
+  const { rows } = await db.query('select count(*)::int as n from healing_episodes');
+  assert.equal(rows[0].n, 0);
 });
 
 test('a scrape that returns nothing lands in BROKEN with FHS 0', async () => {

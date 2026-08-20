@@ -33,6 +33,8 @@ export interface PollerDeps {
   maxAttempts: number;
   retryBackoffMs: number;
   rowHistoryWindow: number;
+  /** Doc 01 section 9 kill switch. False: runs still execute, repairs do not. */
+  healingEnabled?: boolean;
 }
 
 /** Claim and process exactly one job. Returns false when the queue had nothing due. */
@@ -50,6 +52,7 @@ export async function pollOnce(deps: PollerDeps): Promise<boolean> {
         brightdata: deps.brightdata,
         log: jobLog,
         rowHistoryWindow: deps.rowHistoryWindow,
+        healingEnabled: deps.healingEnabled,
       },
       job,
     );
