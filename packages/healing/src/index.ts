@@ -54,6 +54,7 @@ export {
   diagnose,
   refineDiagnosis,
   extractPageContext,
+  stripBinaryNoise,
   renderExample,
   MAX_REPORTED_FIELDS,
   PAGE_CONTEXT_CHARS,

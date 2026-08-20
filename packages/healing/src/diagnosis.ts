@@ -77,6 +77,55 @@ function percent(rate: number | null): string {
 }
 
 /**
+ * Inline binary and encoded junk, stripped from page markdown before anything looks at it.
+ *
+ * Ordered deliberately — the markdown-image rule must run before the bare `data:` rule, or the
+ * image's `![alt](...)` wrapper is left behind as debris once its target is removed.
+ *
+ * On why `[^)]*` is safe for a data URI: the payload is percent-encoded, so a literal `)` inside it
+ * would be `%29`. It cannot terminate the match early. Matching to the closing paren is what makes
+ * this work at all — an SVG data URI contains spaces and quotes, so the obvious `[^\s)"']*` stops a
+ * few characters in and leaves the whole body behind. That was the first version of this, and it
+ * removed 300 characters of a 7,788-character page while reporting success.
+ */
+const NOISE_PATTERNS: readonly RegExp[] = [
+  /!\[[^\]]*\]\(\s*data:[^)]*\)/gi, // markdown image whose target is a data URI
+  /\bdata:[a-z0-9.+-]+\/[a-z0-9.+-]+[;,][^)\s]*\)?/gi, // a bare data URI
+  /<svg\b[^>]*>[\s\S]*?<\/svg>/gi, // inline SVG markup
+  /(?:%[0-9A-Fa-f]{2}){8,}/g, // long percent-encoded runs — encoded markup, not prose
+  /\b[A-Za-z0-9+/]{80,}={0,2}\b/g, // long base64 blobs
+];
+
+/**
+ * Strip inline binary junk from scraped markdown.
+ *
+ * The Chaos Lab renders each product's placeholder image as an inline SVG data URI, and the first
+ * real healing episode showed why that matters far more than the wasted characters.
+ *
+ * **The anchor was matching inside the junk.** Those SVGs carry the product name as rendered label
+ * text — `%3EAeroBook Pro 14%3C/text%3E` — so `indexOf('AeroBook Pro 14')` found the copy buried in
+ * the image payload rather than the copy in the catalogue. The 400-character window then centred on
+ * base64-adjacent gibberish, and the healer was sent `rx='2' fill='%230f172a'/%3E%3Cpolygon
+ * points='20,126 220,126...` as its description of where the data went. The genuinely useful line —
+ * `AeroBook Pro 14 16GB 512GB 1299USD Available` — was three words from the centre and got about a
+ * third of the budget.
+ *
+ * So this runs before the anchor search, not just before the slice. Cleaning only the output would
+ * have kept the prompt tidy while still pointing it at the wrong part of the page.
+ *
+ * Conservative on purpose. It removes things that are definitionally not prose — data URIs, inline
+ * SVG, long percent-encoded and base64 runs — and leaves everything else alone. Over-stripping here
+ * costs more than under-stripping: page context is the one part of a diagnosis we cannot regenerate
+ * from our own records, so deleting real content to save characters trades the valuable thing for
+ * the cheap one.
+ */
+export function stripBinaryNoise(markdown: string): string {
+  let out = markdown;
+  for (const pattern of NOISE_PATTERNS) out = out.replace(pattern, ' ');
+  return out;
+}
+
+/**
  * Pull the ~400 characters surrounding a known value out of the page's markdown.
  *
  * This is the single most valuable part of the prompt and the first part sacrificed to the character
@@ -93,13 +142,17 @@ export function extractPageContext(
 ): string | null {
   if (!markdown || markdown.trim() === '') return null;
 
-  const half = Math.max(1, Math.floor(radius / 2));
-  const index = anchor && anchor.trim() !== '' ? markdown.indexOf(anchor) : -1;
+  // Before the anchor search, not merely before the slice — see stripBinaryNoise.
+  const clean = collapse(stripBinaryNoise(markdown));
+  if (clean === '') return null;
 
-  if (index === -1) return collapse(markdown.slice(0, radius));
+  const half = Math.max(1, Math.floor(radius / 2));
+  const index = anchor && anchor.trim() !== '' ? clean.indexOf(anchor) : -1;
+
+  if (index === -1) return clean.slice(0, radius).trim();
 
   const start = Math.max(0, index - half);
-  return collapse(markdown.slice(start, start + radius));
+  return clean.slice(start, start + radius).trim();
 }
 
 /** Whitespace in scraped markdown is noise that costs characters we have a hard budget for. */
