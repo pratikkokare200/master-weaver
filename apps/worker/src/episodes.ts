@@ -24,6 +24,7 @@ import type {
   ScrapedRow,
 } from '@weaver/contracts';
 
+import { pgSafe, pgSafeText } from './db.js';
 import type { Queryable } from './db.js';
 
 // ---------------------------------------------------------------------------------------------
@@ -75,8 +76,8 @@ export async function openEpisode(db: Queryable, input: OpenEpisodeInput): Promi
       input.trigger,
       input.authorisedBy,
       input.fhsBefore,
-      JSON.stringify(input.failedFields),
-      input.snapshotBefore === undefined ? null : JSON.stringify(input.snapshotBefore),
+      JSON.stringify(pgSafe(input.failedFields)),
+      input.snapshotBefore === undefined ? null : JSON.stringify(pgSafe(input.snapshotBefore)),
       input.operatorPromptedAt ?? null,
       input.operatorActedAt ?? null,
     ],
@@ -115,7 +116,7 @@ export async function closeEpisode(db: Queryable, input: CloseEpisodeInput): Pro
       input.episodeId,
       input.finalState,
       input.fhsAfter ?? null,
-      input.snapshotAfter === undefined ? null : JSON.stringify(input.snapshotAfter),
+      input.snapshotAfter === undefined ? null : JSON.stringify(pgSafe(input.snapshotAfter)),
       input.creditsSpent ?? null,
       input.durationMs ?? null,
       input.attemptCount,
@@ -191,7 +192,9 @@ export async function recordAttempt(db: Queryable, input: RecordAttemptInput): P
        (episode_id, attempt_no, description_sent, cli_argv_redacted, created_at)
      values ($1, $2, $3, $4, now())
      returning id, episode_id, attempt_no`,
-    [input.episodeId, input.attemptNo, input.descriptionSent, input.cliArgvRedacted],
+    // `stderr_excerpt` and the diagnosis are free text straight off a CLI and a page; both are
+    // as capable of carrying a NUL as any jsonb column.
+    [input.episodeId, input.attemptNo, pgSafeText(input.descriptionSent), pgSafeText(input.cliArgvRedacted)],
   );
 
   const attempt = rows[0];
@@ -222,11 +225,11 @@ export async function settleAttempt(db: Queryable, input: SettleAttemptInput): P
     returning id`,
     [
       input.attemptId,
-      input.canarySample === undefined ? null : JSON.stringify(input.canarySample),
+      input.canarySample === undefined ? null : JSON.stringify(pgSafe(input.canarySample)),
       input.canaryFhs ?? null,
       input.decision,
-      input.rejectionReason ?? null,
-      input.stderrExcerpt ?? null,
+      pgSafeText(input.rejectionReason ?? null),
+      pgSafeText(input.stderrExcerpt ?? null),
     ],
   );
 
@@ -294,7 +297,7 @@ export async function upsertBaseline(
         set baseline_row = excluded.baseline_row,
             shape        = excluded.shape,
             captured_at  = excluded.captured_at`,
-    [input.collectorId, input.url, JSON.stringify(input.baseline), input.shape],
+    [input.collectorId, input.url, JSON.stringify(pgSafe(input.baseline)), input.shape],
   );
 }
 
@@ -339,6 +342,6 @@ export async function noteAttemptFailure(
         set cli_argv_redacted = coalesce($2, cli_argv_redacted),
             stderr_excerpt    = $3
       where id = $1`,
-    [input.attemptId, input.cliArgvRedacted ?? null, input.stderrExcerpt ?? null],
+    [input.attemptId, pgSafeText(input.cliArgvRedacted ?? null), pgSafeText(input.stderrExcerpt ?? null)],
   );
 }

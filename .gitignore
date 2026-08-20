@@ -24,3 +24,6 @@ pnpm-debug.log*
 
 # Detached worker logs
 .logs/
+
+# Ad-hoc query scripts against the live ledger. Never part of the build.
+.scratch/

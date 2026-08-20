@@ -16,6 +16,7 @@ import {
   safeParseCollectorContract,
 } from '@weaver/contracts';
 
+import { pgSafe } from './db.js';
 import type { Queryable } from './db.js';
 
 /** A `collectors` row, narrowed to what the runner needs. */
@@ -124,10 +125,12 @@ export async function finishRun(
     returning id`,
     [
       input.runId,
-      JSON.stringify(input.rows),
+      // Raw CLI output from a page we do not control — the single largest NUL exposure in the
+      // schema, since every run writes here. See `db.ts › pgSafe`.
+      JSON.stringify(pgSafe(input.rows)),
       input.rows.length,
       input.fhs,
-      input.fieldScores === null ? null : JSON.stringify(input.fieldScores),
+      input.fieldScores === null ? null : JSON.stringify(pgSafe(input.fieldScores)),
       input.to,
       input.from,
     ],
