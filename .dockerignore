@@ -1,0 +1,31 @@
+# Build context hygiene. Everything here either bloats the image, breaks the build, or must never
+# leave the machine.
+
+# Secrets. First for a reason: .env holds BRIGHTDATA_API_KEY and the database password, and a
+# COPY that swept it into a layer would bake both into the image permanently.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Reinstalled inside the container against the lockfile. Copying a host install also copies its
+# platform-specific binaries, which is how a Windows build produces a container that cannot start.
+**/node_modules
+
+# Build output — regenerated in the build stage. Copying it in risks shipping a stale dist that
+# silently disagrees with the sources beside it.
+**/dist
+**/.next
+**/*.tsbuildinfo
+
+# Not needed at runtime.
+**/test
+**/.logs
+**/.scratch
+apps/web
+apps/chaos-lab
+docs
+supabase
+.git
+.github
+*.md
+!README.md

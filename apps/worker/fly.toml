@@ -1,0 +1,95 @@
+# =============================================================================================
+# Fly.io — @weaver/worker
+#
+#   fly launch --no-deploy --copy-config      (once, from the repo root)
+#   fly secrets set DATABASE_URL=… BRIGHTDATA_API_KEY=… BRIGHTDATA_UNLOCKER_ZONE=…
+#   fly deploy --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile
+#
+# Why Fly rather than Render or Railway, in one line: `kill_timeout`. See the note on it below and
+# docs/DEPLOYMENT.md for the full comparison — the image is provider-neutral, so this is a
+# reversible decision.
+# =============================================================================================
+
+app = "master-weaver-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  LOG_LEVEL = "info"
+
+  # Fifteen minutes, aligned to the wall clock, so ticks land on :00/:15/:30/:45 rather than
+  # drifting from whenever the process last restarted.
+  WORKER_CRON_INTERVAL_MS = "900000"
+
+  # Off, deliberately. A crash-looping worker that scrapes on every boot bills for every restart,
+  # and the aligned tick is at most fifteen minutes away.
+  WORKER_CRON_ON_BOOT = "false"
+
+  # Must comfortably exceed kill_timeout below, or the reaper reclaims a job from a worker that is
+  # still draining it and two processes run the same repair.
+  WORKER_CLAIM_TIMEOUT_MS = "600000"
+
+  # Small on purpose. Supabase caps connections per project and the web app holds its own pool;
+  # the worker runs one job at a time and needs almost nothing.
+  WORKER_DB_POOL_MAX = "4"
+
+# ---------------------------------------------------------------------------------------------
+# The machine
+# ---------------------------------------------------------------------------------------------
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Sized against what the process actually does rather than a guess. The worker holds one run's
+# rows in memory — 144 rows of JSON at the observed shape is well under a megabyte — and spawns a
+# CLI subprocess that does the real work out of process. The output cap is 32 MB, which is the
+# only figure that could plausibly spike, and 512 MB leaves an order of magnitude over it.
+
+[processes]
+  # A single named process, and the name matters: `fly deploy` scales processes by name, and an
+  # unnamed default makes it easy to end up with two machines. Two workers against one queue is
+  # safe for correctness — the claim is FOR UPDATE SKIP LOCKED and the cron INSERT is guarded by
+  # NOT EXISTS — but each one bills for its own scrapes.
+  worker = "node --enable-source-maps dist/index.js"
+
+# ---------------------------------------------------------------------------------------------
+# No [http_service], and no [[services]] at all.
+#
+# This process opens no port. A service block would have Fly wait for a listener that never
+# arrives and report a working deploy as failed. Liveness here is the process being alive, which
+# is what the restart policy below is for.
+# ---------------------------------------------------------------------------------------------
+
+[deploy]
+  # `immediate` replaces the machine outright rather than rolling. With one machine a rolling
+  # strategy has nothing to roll against, and the honest version — brief downtime on deploy — is
+  # better than a strategy name implying continuity that is not there. The cron catches up.
+  strategy = "immediate"
+
+[[restart]]
+  policy = "always"
+  # A worker that exits is a worker that stopped collecting, whatever the exit code — including
+  # the deliberate exit 78 on bad configuration. `always` gets it back; the logs say why it left.
+  retries = 10
+
+# ---------------------------------------------------------------------------------------------
+# THE reason for choosing Fly.
+#
+# `kill_timeout` is how long Fly waits between SIGTERM and SIGKILL. The default is 5 seconds, and
+# Render and Railway both fix this at roughly 30. Our shutdown contract is: on SIGTERM stop
+# claiming new work, let the job already in flight finish, then exit — with a 240-second grace,
+# because `scraper heal` has a 300-second deadline and being killed between the approval and the
+# golden-set confirmation is the worst possible place to lose the process. Credits are already
+# spent, the collector is already mutated, and the episode has no verdict.
+#
+# 300 is Fly's maximum and sits just above our 240-second grace, so the process always reaches its
+# own timeout first and exits deliberately rather than being killed at someone else's.
+#
+# Nothing is lost if this is ever wrong — every ledger row is written before the call it describes
+# and the claim reaper recovers an abandoned job after 600 seconds. But "recoverable" and "correct"
+# are different standards, and this one is available for free.
+# ---------------------------------------------------------------------------------------------
+kill_signal = "SIGTERM"
+kill_timeout = "300s"
