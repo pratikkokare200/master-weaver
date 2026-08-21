@@ -1,0 +1,8 @@
+# Shell scripts must keep LF endings whatever the checkout platform does. A .sh file with CRLF
+# fails on Linux with `bad interpreter: /usr/bin/env sh^M`, and the error names the interpreter
+# rather than the line endings, so it costs an hour the first time.
+*.sh text eol=lf
+
+# Same reasoning: the Dockerfile's RUN lines and the entrypoint are read inside a Linux image.
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
