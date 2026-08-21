@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@weaver/contracts": "workspace:*",
+    "@weaver/export": "workspace:*",
+    "@weaver/textsql": "workspace:*",
     "@weaver/validation": "workspace:*",
     "next": "^16.3.1",
     "pg": "^8.16.3",

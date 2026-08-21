@@ -38,6 +38,12 @@ importers:
       '@weaver/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@weaver/export':
+        specifier: workspace:*
+        version: link:../../packages/export
+      '@weaver/textsql':
+        specifier: workspace:*
+        version: link:../../packages/textsql
       '@weaver/validation':
         specifier: workspace:*
         version: link:../../packages/validation
@@ -145,6 +151,22 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
+  packages/export:
+    dependencies:
+      '@weaver/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@weaver/validation':
+        specifier: workspace:*
+        version: link:../validation
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
   packages/healing:
     dependencies:
       '@weaver/contracts':
@@ -154,6 +176,22 @@ importers:
         specifier: workspace:*
         version: link:../validation
     devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
+  packages/textsql:
+    dependencies:
+      '@weaver/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.5
+        version: 0.5.5
       '@types/node':
         specifier: ^24.3.0
         version: 24.13.3

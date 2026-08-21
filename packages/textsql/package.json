@@ -1,0 +1,33 @@
+{
+  "name": "@weaver/textsql",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The text-to-SQL guard: what a generated statement must be before it is allowed near the database.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@weaver/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.5",
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  }
+}

@@ -103,6 +103,7 @@ export default async function CollectorPage({ params, searchParams }: PageProps)
       ) : null}
 
       <ObservationTabs
+        collectorId={collector.id}
         state={panelState}
         rows={panelState === 'empty' ? [] : productRows}
         episodes={panelState === 'empty' ? [] : episodes}

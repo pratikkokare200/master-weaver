@@ -1,6 +1,7 @@
 import 'server-only';
 
-import type { GoldenSetShape, RunState } from '@weaver/contracts';
+import type { CollectorContract, GoldenSetShape, RunState } from '@weaver/contracts';
+import type { EpisodeRecord, RunRecord } from '@weaver/export';
 
 import { query } from './db.server';
 import type {
@@ -498,3 +499,115 @@ const IN_FLIGHT_STATES: ReadonlySet<RunState> = new Set<RunState>([
   'APPROVING',
   'REJECTING',
 ]);
+
+// ---------------------------------------------------------------------------------------------
+// Export sources
+//
+// The export reads the ledger in its own shapes rather than through the view models above. A
+// spreadsheet wants what was recorded — `resolved_at`, `failed_fields`, the raw `numeric` strings —
+// and the view models have already dropped some of that on the way to being renderable. Two shapes
+// for two consumers, rather than one shape stretched to serve both.
+// ---------------------------------------------------------------------------------------------
+
+/** The latest run that produced rows, with the contract the columns are ordered by. */
+export async function getRowsForExport(collectorId: string): Promise<{
+  name: string;
+  contract: CollectorContract | null;
+  rows: unknown[];
+  finishedAt: string | null;
+} | null> {
+  const rows = await query<{
+    name: string;
+    contract: CollectorContract | null;
+    rows: unknown[] | null;
+    finished_at: Date | null;
+  }>(
+    `select c.name,
+            c.contract,
+            r."rows",
+            r.finished_at
+       from collectors c
+       left join lateral (
+         select "rows", finished_at
+           from runs
+          where runs.collector_id = c.id and finished_at is not null and row_count > 0
+          order by started_at desc
+          limit 1
+       ) r on true
+      where c.id = $1`,
+    [collectorId],
+  );
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    name: row.name,
+    contract: row.contract,
+    rows: Array.isArray(row.rows) ? row.rows : [],
+    finishedAt: iso(row.finished_at),
+  };
+}
+
+/**
+ * The run ledger, newest first, capped.
+ *
+ * `runs.rows` is deliberately not selected. The full CLI payload for 5,000 runs is hundreds of
+ * megabytes, and none of it appears in this sheet — the run history is one line per run.
+ */
+export async function getRunRecords(collectorId: string, limit = 5_000): Promise<RunRecord[]> {
+  return query<RunRecord>(
+    `select started_at, finished_at, run_state, fhs, row_count, credits_spent
+       from runs
+      where collector_id = $1
+      order by started_at desc
+      limit $2`,
+    [collectorId, limit],
+  );
+}
+
+/** Episodes with their attempts, as recorded — rejected attempts included. */
+export async function getEpisodeRecords(collectorId: string, limit = 500): Promise<EpisodeRecord[]> {
+  return query<EpisodeRecord>(
+    `select e.triggered_at,
+            e.resolved_at,
+            e.trigger_reason,
+            e.authorised_by,
+            e.final_state,
+            e.fhs_before,
+            e.fhs_after,
+            e.credits_spent,
+            e.duration_ms,
+            e.failed_fields,
+            (select coalesce(
+                      jsonb_agg(jsonb_build_object(
+                        'attempt_no',       a.attempt_no,
+                        'canary_fhs',       a.canary_fhs,
+                        'decision',         a.decision,
+                        'rejection_reason', a.rejection_reason,
+                        'description_sent', a.description_sent
+                      ) order by a.attempt_no),
+                      '[]'::jsonb)
+               from healing_attempts a
+              where a.episode_id = e.id) as attempts
+       from healing_episodes e
+      where e.collector_id = $1
+      order by e.triggered_at desc
+      limit $2`,
+    [collectorId, limit],
+  );
+}
+
+/**
+ * A collector's name and nothing else.
+ *
+ * Separate from {@link getRowsForExport} because that one selects `runs.rows` — the full CLI payload
+ * — and the run and episode exports need the name only. Reading a megabyte of product JSON to
+ * title a spreadsheet is the kind of waste that is invisible until the payload grows.
+ */
+export async function getCollectorName(collectorId: string): Promise<string | null> {
+  const rows = await query<{ name: string }>('select name from collectors where id = $1', [
+    collectorId,
+  ]);
+  return rows[0]?.name ?? null;
+}

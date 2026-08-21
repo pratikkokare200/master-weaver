@@ -181,3 +181,13 @@ export function ExternalIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function DownloadIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 4v11" />
+      <path d="M8 11l4 4 4-4" />
+      <path d="M4 19h16" />
+    </Svg>
+  );
+}
