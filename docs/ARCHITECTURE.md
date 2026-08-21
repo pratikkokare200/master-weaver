@@ -4,7 +4,7 @@ The designed architecture lives in [`03_PRD_AND_ARCHITECTURE.md`](../03_PRD_AND_
 This document is its companion: what actually exists, where the code is, and — the part worth
 reading — the places where the running system diverged from the plan and why.
 
-Last verified 2026-08-20 against a live database with 54 runs and 5 healing episodes.
+Last verified 2026-08-21 against a live database with 168 runs and 5 healing episodes.
 
 ---
 
@@ -18,6 +18,8 @@ packages/
   validation/    the FHS scorer, coercion, golden baselines    6 src ·  6 test files
   brightdata/    typed CLI adapter, spawn, redaction           7 src ·  3 test files
   healing/       state machine, circuit breaker, diagnosis     4 src ·  3 test files
+  export/        CSV and XLSX writers, one sheet model         5 src ·  3 test files
+  textsql/       SQL guard, lexer, schema description          5 src ·  3 test files
 apps/
   web/           Layer A — the Observation Deck (Next 16)
   worker/        Layer C — the autonomous engine (Node 24)   15 src · 13 test files
@@ -25,9 +27,10 @@ apps/
 supabase/migrations/
   0001_initial_schema.sql
   0002_repair_jobs.sql
+  0003_readonly_role.sql
 ```
 
-**343 tests, 0 failing.** Everything touching the database runs against real Postgres (PGlite), not
+**420 tests, 0 failing.** Everything touching the database runs against real Postgres (PGlite), not
 a mock — a decision that has paid for itself repeatedly, most sharply in §5.
 
 ### The dependency rule
@@ -58,13 +61,21 @@ Layer A is **read-only with exactly one exception**: the repair route inserts a 
 calls the Bright Data CLI, never scores a run, and never decides anything. All reads live in
 `lib/queries.server.ts` so that claim is checkable by opening one file.
 
-Two decisions worth naming:
+Three route handlers: `repair` (the one write), `export` (CSV/XLSX of the rows, the run ledger or the
+healing ledger), and `ask` (text-to-SQL). `status` is the polled endpoint behind the live badge.
+
+Three decisions worth naming:
 
 **The approval route enqueues; it does not repair.** A healing episode runs 30–60 seconds and Vercel
 terminates a request well before that. A repair driven from inside the handler would be killed
 mid-episode, quite possibly between the approval and the confirmation — the worst possible place to
 lose the process. The click becomes a job; the worker owns the loop. A partial unique index makes a
 double-click idempotent rather than racing two episodes onto one collector.
+
+**Generated SQL runs on a different connection from everything else.** The Chat panel's queries go
+through `weaver_readonly` — SELECT on six tables, inside a transaction Postgres has marked read-only
+— rather than the pool that renders the pages. The guard in `@weaver/textsql` is the first defence
+and the role is the second, on the assumption that the first one fails (ADR-004).
 
 **Live status polls rather than subscribing.** Supabase Realtime would mean a websocket, a second
 client library, and reconnect behaviour that is its own bug surface — to watch a table that changes
@@ -236,9 +247,13 @@ redesign is, and the only shape of breakage this API can be asked to repair.
 
 Stated plainly rather than left for someone to discover:
 
-- **No authentication.** v1 has none (doc 03 §2.3). The repair route is unauthenticated and nothing
-  about it should be described as a security control. `authorised_by` records *that* a human
-  authorised a repair and should one day record *which*.
+- **No authentication.** v1 has none (doc 03 §2.3). The repair, export and ask routes are all
+  unauthenticated, and nothing about any of them should be described as a security control. Anyone
+  who can reach a collector page can read its whole ledger and authorise a repair. `authorised_by`
+  records *that* a human authorised a repair and should one day record *which*.
+- **Text-to-SQL is unmetered.** `/ask` is not rate limited, so a loop of questions spends Groq
+  tokens. The read side is bounded — a 5-second statement timeout and a 200-row cap — but the
+  spending is not.
 - **The rejection path has not run live.** All three real heal attempts scored 1.0 and were
   approved. Rejection, refinement and retry are proven against real Postgres with a faked CLI; no
   Bright Data heal has yet scored badly enough to be refused.
