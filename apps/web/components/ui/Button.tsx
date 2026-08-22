@@ -7,18 +7,18 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 /**
- * The one accent, used sparingly (doc 05 §1). `primary` is solid charcoal and there should be at
- * most one on screen at a time; everything else is a hairline-bordered secondary or a ghost.
+ * The one accent, used sparingly (doc 05 §1). `primary` is solid teal and there should be at most
+ * one on screen at a time; everything else is a hairline-bordered secondary or a ghost.
  *
- * The primary button is a solid charcoal fill carrying a white label — the one place this palette
- * does not use its pastel-wash/readable-ink split. The split exists because a saturated mid-tone
- * cannot be both a soft fill and a legible background for text; charcoal has no such conflict, so
- * white sits on it at 11.6:1. The pastel cerulean this replaced topped out at 7.0:1 with the
- * darkest label it could carry, so going solid is a contrast gain, not a stylistic trade.
+ * The primary button is a solid teal fill carrying a white label at 5.5:1 — a genuine fill, not a
+ * pastel wash. It uses `--accent-fill` rather than `--accent`, and those are two different values:
+ * the fill is the brighter register so the button reads as teal from across a room, and the ink is
+ * a step deeper so it can clear AA as *text* on white, on the page plane and on the accent wash.
+ * One value cannot be both without either dulling the button or failing a label somewhere.
  *
- * The 1px border is a shade deeper than the fill rather than lighter. On a light plane a dark
- * block already asserts its own shape, so the edge is no longer doing the work it did for a
- * pastel — it just keeps the corner crisp where the fill meets the page.
+ * The 1px border is deeper than the fill rather than lighter, and deeper than the hover fill too,
+ * so the edge survives both states. On a light plane a saturated block already asserts its own
+ * shape — the edge just keeps the corner crisp where the fill meets the page.
  *
  * Minimum touch target is 36px tall in dense contexts and 44px for standalone actions (§8).
  */

@@ -13,18 +13,16 @@
    it). That split is what lets the surface look soft while every label still clears WCAG AA — a
    single mid-tone mint cannot be both a pretty wash and legible text, so it isn't asked to be.
 
-   The accent is charcoal, and it is the only member of this palette with no hue at all. That is
-   the point rather than an absence of one. Status owns mint at 162deg, apricot at 33deg and rose
-   at 349deg, so any *chromatic* accent has to be argued into a gap between them — and the two
-   gaps a "premium" brief reaches for are the worst on offer: terracotta lands about 13deg from
-   the healing apricot and would kill the healing state as an event, and clay sits near enough to
-   rose to blur "primary action" into "critical". A neutral cannot collide with a reserved hue by
-   construction, so the argument never has to be made. Hue is left to mean status and nothing
-   else, and the accent asserts itself with weight and contrast instead.
+   The accent is teal at 187deg. It is the one chromatic accent this palette has ever carried, and
+   it had to be argued into a gap: status owns mint at 161deg, apricot at 33deg and rose at 349deg,
+   so 187deg sits 26deg off the nearest reserved hue. That is the widest gap available on the cool
+   side of the wheel and twice the separation the terracotta proposal was rejected for (13deg from
+   the healing apricot), but it is not the infinite separation a neutral had — see the note under
+   --accent below for what carries the distinction in practice.
 
-   Every value below was checked with a contrast script before it landed. The ratios in the
-   comments are measured, not aspirational; if you change a value, re-measure the pair it is
-   named against.
+   Every value below was checked with `node scripts/contrast.mjs` before it landed. The ratios in
+   the comments are measured, not aspirational; if you change a value, re-run the script rather
+   than re-deriving the number by eye — it reads these tokens straight out of this file.
 
    Tokens are declared as plain custom properties on :root and referenced through `@theme inline`,
    so the Day 5 dark mode (doc 05 §7) is a token swap — redefine these values under a `.dark`
@@ -33,7 +31,7 @@
 
 :root {
   /* --- Surfaces & ink — §2.1 (light column) ------------------------------------------- */
-  --plane: #f6f8fa; /* soft off-white · page plane, a hair cool so the charcoal reads as slate */
+  --plane: #f6f8fa; /* soft off-white · page plane, held neutral so the teal is the only hue on it */
   --surface: #ffffff; /* white     · card surface */
   --raised: #ffffff; /* white     · dropdown menus */
   --hairline: #e3e7ec; /* every border, always 1px */
@@ -42,32 +40,41 @@
   --ink-muted: #68717f; /* axis, meta, timestamps     ·  4.9:1 on surface, 4.6:1 on plane */
 
   /* --- Accents — §2.2 ------------------------------------------------------------------
-     Charcoal. `--accent` is the *ink* form: link text, active nav, focus ring, the logo mark,
-     the chart series. `--accent-fill` is the primary button's surface — and alone in this
-     palette it is not a pastel wash but the accent itself, carrying a white label.
+     Teal at 187deg. `--accent` is the *ink* form: link text, active nav, focus ring, the logo
+     mark, the chart series. `--accent-fill` is the primary button's surface.
 
-     That suspends the pastel/ink split above, deliberately and only here. The split exists
-     because a saturated mid-tone can be a soft fill or legible text but not both; charcoal has
-     no such problem. White on this fill measures 11.6:1, against the 7.0:1 of the deepest label
-     the old pastel cerulean fill could carry — going solid buys contrast rather than spending
-     it, which is what makes it the right answer for a flat system with no shadows to lean on.
+     **The ink and the fill are two values, not one.** Charcoal could be a single value because a
+     neutral is legible as text and usable as a fill at the same lightness. A saturated hue is
+     not: the fill wants to be bright enough to read as "teal" at a glance, and the ink wants to
+     be dark enough to clear AA on three different backgrounds — white, the page plane, and the
+     accent wash. Asking one value to do both is how a pastel quietly darkens into a mid-tone and
+     stops looking like a pastel. So the fill is the brighter register (#0a7482, white label at
+     5.5:1) and the ink is one step deeper (#0a6b76, 6.2:1 on white). This is the same plane/ink
+     split every status hue uses; charcoal was the exception, and the exception left with it.
 
-     Chroma is held at 10% saturation. Somewhere below ~15% the eye stops naming a hue and reads
-     "graphite"; that threshold is the whole brief, because a slate blue at 30% is still a blue. */
-  --accent: #37393d; /* charcoal ink · 11.6:1 on surface, 10.9:1 on plane, 11.6:1 under white */
-  --accent-hover: #24262a;
-  --accent-fill: #37393d; /* primary button surface · solid, not a wash */
-  --accent-fill-hover: #24262a;
-  --accent-border: #2c2e32; /* a shade deeper than the fill, so the button keeps a crisp edge */
-  --accent-ink: #ffffff; /* label on --accent-fill · 11.6:1 */
-  --accent-plane: #dfe3e8; /* active nav wash · accent reads 9.0:1 on it, 1.21:1 against plane */
+     **What keeps teal off the reserved hues.** 26deg of separation from mint is real but it is
+     not the infinite separation a neutral had, so the distinction is carried by *role* as well as
+     by hue: status hues appear only as dots, badges and washes inside a status surface, and the
+     accent appears only on actions, navigation and the chart series. Where they could sit side by
+     side — the collector rows in the rail, whose dots are status and whose active row is accent —
+     the two read apart because the mint is green-leaning and light while the accent is
+     cyan-leaning and dark. If a future value narrows that gap, the fix is to move the accent, not
+     the status hue: apricot in particular is reserved for the healing state and nothing else. */
+  --accent: #0a6b76; /* teal ink · 6.2:1 on surface, 5.8:1 on plane, 5.0:1 on accent-plane */
+  --accent-hover: #075059; /* 9.1:1 on surface */
+  --accent-fill: #0a7482; /* primary button surface · solid, not a wash */
+  --accent-fill-hover: #086670; /* white label 6.7:1 */
+  --accent-border: #07626c; /* deeper than the fill AND than the hover, so the edge survives both */
+  --accent-ink: #ffffff; /* label on --accent-fill · 5.5:1 */
+  --accent-plane: #d3ebef; /* active nav wash · accent reads 5.0:1 on it, 1.17:1 against plane */
 
-  /* The tour chip (§3). A neutral wash cannot separate itself from a neutral plane by hue, so it
-     does it by lightness — hence a wash one clear step darker than the old cerulean one, plus a
-     border that is actually visible. `-strong` is the peak of the chip's attention pulse, and
-     is never a resting colour. */
-  --accent-plane-strong: #d2d7de; /* pulse peak      · accent still 8.0:1 on it */
-  --accent-plane-border: #c4cbd4; /* the chip's edge · 1.54:1 on plane, so it reads as an edge */
+  /* The tour chip (§3). The charcoal wash had to separate itself from a neutral plane by lightness
+     alone, because it had no hue to do it with; a teal wash separates by both, so it can stay
+     genuinely pale and still read as a distinct surface. `-strong` is the peak of the chip's
+     attention pulse and is never a resting colour — it steps up in saturation more than in
+     darkness, because the label sitting on it still has to clear AA at the peak. */
+  --accent-plane-strong: #c3e9f0; /* pulse peak      · accent still 4.8:1 on it */
+  --accent-plane-border: #a5d9e4; /* the chip's edge · 1.45:1 on plane, so it reads as an edge */
 
   /* Pastel mint replaces the emerald success family. Same split: a wash to read, an ink to
      write on it. */
@@ -195,7 +202,7 @@
     border-color: var(--hairline);
   }
 
-  /* Focus ring on every interactive element — charcoal, 2px offset (§8). */
+  /* Focus ring on every interactive element — teal, 2px offset (§8). */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -248,6 +255,29 @@
   .tour-pulse:hover .tour-dot,
   .tour-pulse:focus-visible .tour-dot {
     animation: none;
+  }
+
+  /* ----------------------------------------------------------------------------------------
+     The chat's "writing the query" indicator.
+
+     Three dots on the §4 clock — the same 1.6s opacity pulse the healing dot runs, staggered a
+     third of a cycle apart so the group reads as a wave rather than a blink. It is deliberately
+     the *existing* animation with a delay rather than a new keyframe: a second easing curve in the
+     product would be a second opinion about how this app moves.
+
+     Dots, never text. §4's rule is that opacity pulses on a mark and never on a label, because
+     pulsing text is unreadable — so the words beside these dots stay put at full opacity.
+     ---------------------------------------------------------------------------------------- */
+  .typing-dot {
+    animation: weaver-pulse 1.6s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
   }
 
   /* Badge state transitions cross-fade over 200ms. No slide, no bounce (§4). */
@@ -331,7 +361,8 @@
   .dot-pulse,
   .skeleton,
   .tour-pulse,
-  .tour-pulse .tour-dot {
+  .tour-pulse .tour-dot,
+  .typing-dot {
     animation: none;
   }
 

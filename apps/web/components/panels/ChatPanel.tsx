@@ -1,26 +1,40 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { ChatIcon } from '@/components/icons';
-import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/states/EmptyState';
+import { ChatIcon, SendIcon, SparkIcon, TrashIcon } from '@/components/icons';
 import { ErrorState } from '@/components/states/ErrorState';
 import { ListSkeleton } from '@/components/states/Skeletons';
 import { cn } from '@/lib/cn';
 import type { PanelState } from '@/lib/panelState';
 
 /**
- * SQLChat — doc 05 §6. Messages above, input below.
+ * SQLChat — doc 05 §6, rebuilt as a conversation rather than a form with a transcript above it.
  *
- * "The generated SQL renders in a collapsed mono block beneath each answer, expandable, with a copy
- * button. **Never hide it.**" Showing the query is what separates this from a chatbot that might be
- * making things up — and it is also what lets someone spot a query that answered a subtly different
- * question from the one they asked.
+ * The shape is the one every reader already knows from a modern assistant: a scroll region that
+ * holds the history, an input welded to the bottom of the view, and nothing else competing for the
+ * space. Three things follow from that and are worth stating, because each replaced something
+ * simpler that did not work:
  *
- * A refused or failed query still shows its SQL. That is the case where seeing it matters most:
- * "the generated query was refused" with the statement underneath is diagnosable, and the same
- * message without it is not.
+ * **The panel owns a fixed height, and only the history scrolls.** Previously the whole panel grew
+ * with the conversation and the composer sat at the bottom of a page that got longer with every
+ * answer — so the input a reader was about to type into walked further away the more they used it.
+ * A fixed 560px column with `flex-1 overflow-y-auto` on the history is what pins it.
+ *
+ * **The history sticks to the bottom as it grows.** Answers arrive after a wait, and an answer that
+ * lands below the fold reads as nothing having happened. `useLayoutEffect` rather than `useEffect`,
+ * so the jump happens in the same frame the message paints instead of one frame after it.
+ *
+ * **The two roles are shaped differently, not just aligned differently.** A question is short and
+ * gets a bubble; an answer carries a SQL block and often a result table, and wrapping that in a
+ * bubble makes a nested box of boxes. So the answer sits open on the surface behind a small mark,
+ * which is also what leaves the SQL block room to be readable.
+ *
+ * The one rule inherited unchanged from §6: "The generated SQL renders in a collapsed mono block
+ * beneath each answer, expandable, with a copy button. **Never hide it.**" Showing the query is
+ * what separates this from a chatbot that might be making things up, and it is what lets someone
+ * spot a query that answered a subtly different question from the one they asked. A refused or
+ * failed query still shows its SQL — that is the case where seeing it matters most.
  */
 
 interface Turn {
@@ -39,12 +53,17 @@ const SUGGESTIONS = [
   'Show every healing attempt and whether it was approved',
 ] as const;
 
+/** Matches the `intent_prompt` column's own limit, so the box cannot accept what the API will not. */
+const MAX_QUESTION = 500;
+/** Past this the composer scrolls instead of growing — four or five lines of question is plenty. */
+const MAX_COMPOSER_HEIGHT = 132;
+
 function SqlBlock({ sql }: { sql: string }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="mt-2 rounded-control border border-hairline bg-plane">
+    <div className="mt-3 rounded-control border border-hairline bg-plane">
       <div className="flex w-full items-center justify-between">
         <button
           type="button"
@@ -91,7 +110,7 @@ function ResultTable({
   const shown = rows.slice(0, 10);
 
   return (
-    <div className="mt-2 overflow-x-auto rounded-control border border-hairline">
+    <div className="mt-3 overflow-x-auto rounded-control border border-hairline">
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b border-hairline bg-plane">
@@ -140,11 +159,75 @@ function ResultTable({
   );
 }
 
+/** The mark beside an answer. Accent wash, accent ink — the quiet register, never the solid fill. */
+function AssistantMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-accent-plane text-accent"
+    >
+      <SparkIcon size={15} />
+    </span>
+  );
+}
+
+function TurnRow({ turn }: { turn: Turn }) {
+  if (turn.role === 'user') {
+    return (
+      <li className="flex justify-end">
+        <div className="max-w-[85%] rounded-card bg-accent-plane px-4 py-2.5 text-body text-ink">
+          {turn.text}
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex gap-3">
+      <AssistantMark />
+      <div className="min-w-0 flex-1">
+        <p className={cn('text-body', turn.failed ? 'text-status-critical' : 'text-ink')}>
+          {turn.text}
+        </p>
+        {turn.sql ? <SqlBlock sql={turn.sql} /> : null}
+        {turn.columns && turn.rows ? (
+          <ResultTable
+            columns={turn.columns}
+            rows={turn.rows}
+            truncated={turn.truncated ?? false}
+          />
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
 export function ChatPanel({ state, collectorId }: { state: PanelState; collectorId?: string }) {
   const [draft, setDraft] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [pending, setPending] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+
+  const disabled = pending || !collectorId;
+
+  // Pin the history to the bottom whenever it grows. `scrollTop`, not `scrollIntoView` — the latter
+  // scrolls the nearest scrollable ancestor too, which here is the page, so asking a question would
+  // yank the whole dashboard about.
+  useLayoutEffect(() => {
+    const element = historyRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [turns, pending]);
+
+  function resize(element: HTMLTextAreaElement) {
+    element.style.height = 'auto';
+    element.style.height = `${Math.min(element.scrollHeight, MAX_COMPOSER_HEIGHT)}px`;
+  }
+
+  // The composer shrinks back after a send, and grows to fit a suggestion dropped into it.
+  useEffect(() => {
+    if (inputRef.current) resize(inputRef.current);
+  }, [draft]);
 
   async function ask(question: string) {
     const asked = question.trim();
@@ -218,102 +301,166 @@ export function ChatPanel({ state, collectorId }: { state: PanelState; collector
   }
 
   const visible = state === 'empty' ? [] : turns;
+  const started = visible.length > 0;
 
   return (
-    <div className="flex h-full min-h-[320px] flex-col">
-      <div className="flex-1 overflow-y-auto p-6">
-        {visible.length === 0 ? (
-          <div className="flex flex-col items-center gap-4">
-            <EmptyState
-              icon={ChatIcon}
-              title="Ask about this data"
-              description="Ask a question in plain English. The generated SQL is always shown beneath the answer."
-            />
-            {/* Three real questions this ledger can answer. An empty prompt box is a request to
-                guess what the system knows about; these say it. */}
-            <ul className="flex flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((suggestion) => (
-                <li key={suggestion}>
-                  <button
-                    type="button"
-                    onClick={() => void ask(suggestion)}
-                    disabled={pending || !collectorId}
-                    className="rounded-badge border border-hairline px-3 py-1.5 text-meta text-ink-secondary transition-colors hover:bg-plane hover:text-ink disabled:opacity-50"
-                  >
-                    {suggestion}
-                  </button>
-                </li>
+    <div className="flex h-[560px] flex-col">
+      {/* A thin header, present only once there is something to reset. On an empty conversation it
+          would be a bar of chrome above an invitation, which is the opposite of inviting. */}
+      {started ? (
+        <div className="flex shrink-0 items-center justify-between border-b border-hairline px-6 py-3">
+          <p className="text-meta text-ink-muted">
+            Answers are written from rows this collector actually returned.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setTurns([]);
+              setDraft('');
+              inputRef.current?.focus();
+            }}
+            disabled={pending}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-control px-2 text-meta text-ink-secondary transition-colors hover:bg-plane hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <TrashIcon size={14} />
+            New conversation
+          </button>
+        </div>
+      ) : null}
+
+      {/* The history. `flex-1` plus `overflow-y-auto` is the whole trick: this is the only part of
+          the panel that ever scrolls, and it is measured against a parent of known height. */}
+      <div ref={historyRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-6 py-6">
+          {started ? (
+            <ul className="flex flex-col gap-6">
+              {visible.map((turn, index) => (
+                <TurnRow key={index} turn={turn} />
               ))}
+              {pending ? (
+                <li className="flex items-center gap-3" aria-live="polite">
+                  <AssistantMark />
+                  <span className="flex items-center gap-2 text-body text-ink-muted">
+                    Writing the query
+                    <span className="flex items-center gap-1" aria-hidden="true">
+                      <span className="typing-dot h-1.5 w-1.5 rounded-badge bg-ink-muted" />
+                      <span className="typing-dot h-1.5 w-1.5 rounded-badge bg-ink-muted" />
+                      <span className="typing-dot h-1.5 w-1.5 rounded-badge bg-ink-muted" />
+                    </span>
+                  </span>
+                </li>
+              ) : null}
             </ul>
-          </div>
-        ) : (
-          <ul className="space-y-4">
-            {visible.map((turn, index) => (
-              <li
-                key={index}
-                className={cn('flex flex-col', turn.role === 'user' ? 'items-end' : 'items-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-2xl rounded-card px-4 py-3 text-body',
-                    turn.role === 'user'
-                      ? 'bg-accent-plane text-ink'
-                      : turn.failed
-                        ? 'border border-hairline bg-surface text-status-critical'
-                        : 'border border-hairline bg-surface text-ink',
-                  )}
-                >
-                  {turn.text}
-                  {turn.sql ? <SqlBlock sql={turn.sql} /> : null}
-                  {turn.columns && turn.rows ? (
-                    <ResultTable
-                      columns={turn.columns}
-                      rows={turn.rows}
-                      truncated={turn.truncated ?? false}
-                    />
-                  ) : null}
-                </div>
-              </li>
-            ))}
-            {pending ? (
-              <li className="flex items-start">
-                <div className="rounded-card border border-hairline bg-surface px-3 py-2 text-body text-ink-muted">
-                  Writing the query…
-                </div>
-              </li>
-            ) : null}
-          </ul>
-        )}
+          ) : (
+            /* The opening screen. Centred in the scroll region rather than pinned to the top, so
+               the panel does not read as a conversation that has already been cleared. */
+            <div className="flex flex-col items-center gap-6 py-10 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-card border border-hairline bg-plane text-ink-muted">
+                <ChatIcon size={20} />
+              </span>
+              <div>
+                <p className="text-section font-semibold text-ink">Ask about this data</p>
+                <p className="mx-auto mt-2 max-w-sm text-body text-ink-secondary">
+                  Your question becomes SQL, runs against this collector read-only, and the query is
+                  shown beneath every answer.
+                </p>
+              </div>
+              {/* Three real questions this ledger can answer. An empty prompt box is a request to
+                  guess what the system knows about; these say it. */}
+              <ul className="flex w-full max-w-lg flex-col gap-2">
+                {SUGGESTIONS.map((suggestion) => (
+                  <li key={suggestion}>
+                    <button
+                      type="button"
+                      onClick={() => void ask(suggestion)}
+                      disabled={disabled}
+                      className={cn(
+                        'w-full rounded-control border border-hairline bg-surface px-4 py-2.5',
+                        'text-left text-body text-ink-secondary transition-colors',
+                        'hover:border-accent-plane-border hover:bg-accent-plane hover:text-accent',
+                        'disabled:cursor-not-allowed disabled:opacity-50',
+                      )}
+                    >
+                      {suggestion}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
-      <form
-        className="flex items-center gap-4 border-t border-hairline p-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void ask(draft);
-        }}
-      >
-        <label htmlFor="chat-input" className="sr-only">
-          Ask a question about this collector&apos;s data
-        </label>
-        <input
-          id="chat-input"
-          ref={inputRef}
-          value={draft}
-          maxLength={500}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask about this collector's data…"
-          className="min-h-11 flex-1 rounded-control border border-hairline bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-muted"
-        />
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={!draft.trim() || pending || !collectorId}
-          className="min-h-11"
+      {/* The composer. `shrink-0` inside the fixed-height column is what anchors it: it keeps its
+          own height no matter how long the conversation above it gets. */}
+      <div className="shrink-0 border-t border-hairline bg-surface px-6 py-4">
+        <form
+          className="mx-auto w-full max-w-3xl"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void ask(draft);
+          }}
         >
-          {pending ? 'Asking…' : 'Ask'}
-        </Button>
-      </form>
+          <label htmlFor="chat-input" className="sr-only">
+            Ask a question about this collector&apos;s data
+          </label>
+          {/* The border lives on the wrapper, not the textarea, so the send button sits *inside*
+              the field the way a modern composer does. `focus-within` moves the ring out to the
+              wrapper with it — without that, focus would ring a control the reader cannot see. */}
+          <div
+            className={cn(
+              'flex items-end gap-2 rounded-card border border-hairline bg-plane p-2',
+              'transition-colors focus-within:border-accent',
+            )}
+          >
+            <textarea
+              id="chat-input"
+              ref={inputRef}
+              rows={1}
+              value={draft}
+              maxLength={MAX_QUESTION}
+              disabled={disabled}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter sends, Shift+Enter breaks the line — the convention this input is borrowing
+                // its whole shape from. `isComposing` guards an IME: mid-composition Enter commits
+                // a candidate character and must not also send the message.
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  void ask(draft);
+                }
+              }}
+              placeholder="Ask about this collector's data…"
+              className={cn(
+                'min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5',
+                'text-body text-ink placeholder:text-ink-muted',
+                'focus-visible:outline-none disabled:cursor-not-allowed',
+              )}
+            />
+            <button
+              type="submit"
+              aria-label="Send question"
+              disabled={!draft.trim() || disabled}
+              className={cn(
+                'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-control',
+                'border border-accent-border bg-accent-fill text-accent-ink transition-colors',
+                'hover:bg-accent-fill-hover',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+              )}
+            >
+              <SendIcon size={16} />
+            </button>
+          </div>
+          <p className="mt-2 flex items-center justify-between text-meta text-ink-muted">
+            <span>Enter to send · Shift + Enter for a new line</span>
+            {/* Only near the ceiling. A counter that is always on screen is a warning that never
+                stops warning, and this limit is not one an ordinary question comes close to. */}
+            <span className={cn(draft.length > MAX_QUESTION - 100 ? 'visible' : 'invisible')}>
+              {draft.length} / {MAX_QUESTION}
+            </span>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

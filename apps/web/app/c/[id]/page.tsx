@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
 
 import { CollectorHeader } from '@/components/collector/CollectorHeader';
+import { CollectorViews } from '@/components/collector/CollectorViews';
 import { LiveHealth } from '@/components/collector/LiveHealth';
-import { ObservationTabs } from '@/components/collector/ObservationTabs';
+import { ObservationPanel } from '@/components/collector/ObservationPanel';
 import { RepairConfirmation } from '@/components/collector/RepairConfirmation';
+import { ViewSwitcher } from '@/components/collector/ViewSwitcher';
 import { CommandBar } from '@/components/shell/CommandBar';
 import { parsePanelState } from '@/lib/panelState';
 import {
@@ -74,7 +76,11 @@ export default async function CollectorPage({ params, searchParams }: PageProps)
   const awaitingOperator = live?.awaitingOperator ?? false;
 
   return (
-    <div className="flex flex-col gap-6">
+    // The provider owns the page column, because the view switcher at the top and the panel at the
+    // bottom are the same control split in two and everything between them is server-rendered.
+    <CollectorViews>
+      <ViewSwitcher collectorId={collector.id} />
+
       <CommandBar defaultUrl={collector.targetUrl} />
 
       <CollectorHeader collector={collector} failedFields={live?.failedFields ?? []} />
@@ -102,7 +108,7 @@ export default async function CollectorPage({ params, searchParams }: PageProps)
         </p>
       ) : null}
 
-      <ObservationTabs
+      <ObservationPanel
         collectorId={collector.id}
         state={panelState}
         rows={panelState === 'empty' ? [] : productRows}
@@ -111,6 +117,6 @@ export default async function CollectorPage({ params, searchParams }: PageProps)
         health={panelState === 'empty' ? [] : health}
         episodeMarks={episodeMarks}
       />
-    </div>
+    </CollectorViews>
   );
 }

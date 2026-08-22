@@ -200,3 +200,44 @@ export function DownloadIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function SendIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </Svg>
+  );
+}
+
+/**
+ * The mark beside an assistant turn in the chat.
+ *
+ * A four-point star rather than a robot or a speech bubble: the answer it labels is a SQL query
+ * this product wrote and ran, and a robot face would be claiming a persona the product does not
+ * have. The path opts out of the shared 1.5px stroke and fills instead — at 14px a stroked star is
+ * four grey hairlines and no shape at all. It is the one icon here that does that, for a reason
+ * that only applies to it.
+ */
+export function SparkIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path
+        fill="currentColor"
+        stroke="none"
+        d="M12 3.2c.3 2.6 1.1 4.4 2.4 5.6 1.2 1.2 3 2 5.4 2.4-2.4.4-4.2 1.2-5.4 2.4-1.3 1.2-2.1 3-2.4 5.6-.3-2.6-1.1-4.4-2.4-5.6-1.2-1.2-3-2-5.4-2.4 2.4-.4 4.2-1.2 5.4-2.4 1.3-1.2 2.1-3 2.4-5.6z"
+      />
+    </Svg>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 7h16" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+    </Svg>
+  );
+}

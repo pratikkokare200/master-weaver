@@ -22,7 +22,7 @@ adding, not by omitting.
 
 Three commitments that produce the look on their own:
 
-1. **One accent, used sparingly.** Charcoal for primary action. If everything is accented, nothing is.
+1. **One accent, used sparingly.** Teal for primary action. If everything is accented, nothing is.
 2. **Hairline borders over shadows.** Slate-200 dividers. Shadows only on genuinely floating layers
    (dropdown, modal, tooltip).
 3. **Consistent vertical rhythm.** One spacing scale, no ad-hoc pixel values. This is 80% of why
@@ -43,7 +43,7 @@ shared component library.
 
 | Role | Light | Dark | Note |
 |---|---|---|---|
-| Page plane | `#f6f8fa` | `#14171d` | soft off-white, a hair cool so the charcoal reads as slate |
+| Page plane | `#f6f8fa` | `#14171d` | soft off-white, held neutral so the teal is the only hue on it |
 | Card surface | `#ffffff` | `#1b1f27` | |
 | Raised surface (dropdown) | `#ffffff` | `#232833` | |
 | Hairline border | `#e3e7ec` | `#2b303c` | every border, always 1px |
@@ -66,44 +66,54 @@ fill and legible text, so neither job is asked of one value: the fill stays genu
 label on it goes dark, rather than the fill darkening until white text survives (which is how a
 pastel turns back into a saturated mid-tone).
 
-**The accent is charcoal because it is the only value that cannot collide.** Status owns mint at
-162°, apricot at 33° and rose at 349°. Any accent near one of them makes "primary action" and
-"system state" the same signal, which is the one confusion this palette exists to prevent — a peach
-primary button sits 11° from the healing apricot and would kill the healing state as an event.
+**The accent is teal at 187°.** Status owns mint at 161°, apricot at 33° and rose at 349°, and any
+accent near one of them makes "primary action" and "system state" the same signal — the one
+confusion this palette exists to prevent. 187° is the widest gap available on the cool side of the
+wheel: 26° off mint, and twice the separation that got terracotta rejected (13° from the healing
+apricot, which would have killed the healing state as an event).
 
-Cerulean at 208° was the widest gap on the wheel and it held that argument for four days, but the
-gap was the *only* thing recommending it: at 60% saturation it read as the default blue of every
-dashboard shipped since 2015, which is the opposite of what a premium surface wants. The two hues
-usually reached for instead are worse than cerulean, not better — **terracotta at ~20° is 13° from
-the healing apricot** and **clay runs into rose at 349°**; both re-open the exact collision the
-reserved-hue rule closes.
+This replaced charcoal, and it is worth being straight about what the change costs. Charcoal's
+argument was that a neutral **cannot** collide, so hue was left to mean status and nothing else, and
+26° is not that guarantee. What holds the line instead is **role**: a status hue appears only as a
+dot, a badge or a wash inside a status surface, and the accent appears only on actions, navigation
+and the chart series. The one place they meet is the collector rail, where the row dots are status
+and the active row is accent — and there they read apart because mint is green-leaning and light
+while the accent is cyan-leaning and dark. **If a future value narrows that gap, move the accent,
+not the status hue.** Apricot in particular stays reserved for the healing state.
 
-A neutral ends the argument. Charcoal has no hue to collide with, so hue is left to mean status and
-nothing else, and the accent asserts itself through weight and contrast instead. Chroma is held at
-**10% saturation** — below roughly 15% the eye stops naming a hue and reads "graphite", and a slate
-blue at 30% is still a blue.
+Cerulean at 208° held this slot for four days before charcoal and is worth not repeating: at 60%
+saturation it read as the default blue of every dashboard shipped since 2015. Teal is a deeper,
+greener register than that and reads as a chosen colour rather than a framework default.
 
-The accent is also the one member of the palette with **no pastel/ink split**: the primary button is
-a solid charcoal fill carrying a white label. The split exists to protect legibility on saturated
-mid-tones, and charcoal has no such problem — white sits on it at 11.6:1, where the deepest label
-the old pastel cerulean fill could carry managed 7.0:1. Going solid buys contrast rather than
-spending it, which matters more in a system with no shadows to fall back on.
+**The accent ink and the accent fill are two values, not one.** Charcoal could be a single value
+because a neutral is legible as text and usable as a fill at the same lightness. A saturated hue is
+not: the fill wants to be bright enough to read as teal at a glance, the ink wants to be dark enough
+to clear AA as *text* on white, on the page plane and on the accent wash. That is the same
+plane/ink split every status hue uses — charcoal was the exception, and the exception left with it.
 
 | Role | Hex | Used for — and nothing else |
 |---|---|---|
-| Accent ink | `#37393d` | link text, active nav, focus ring, logo mark, chart series · 11.6:1 on surface |
-| Accent ink hover | `#24262a` | 15.2:1 on surface |
-| Accent fill | `#37393d` | the primary button's surface · **solid**, not a wash |
-| Accent fill hover | `#24262a` | |
-| Accent border | `#2c2e32` | the primary button's 1px edge — a shade **deeper** than the fill |
-| Accent label | `#ffffff` | the label **on** accent fill · 11.6:1 |
-| Accent plane | `#dfe3e8` | active nav wash, tour chip · accent ink reads 9.0:1 on it |
-| Accent plane strong | `#d2d7de` | the tour chip's pulse peak only · accent ink 8.0:1 |
-| Accent plane border | `#c4cbd4` | the tour chip's edge · 1.54:1 on plane |
+| Accent ink | `#0a6b76` | link text, active nav, focus ring, logo mark, chart series · 6.2:1 on surface |
+| Accent ink hover | `#075059` | 9.1:1 on surface |
+| Accent fill | `#0a7482` | the primary button's surface · **solid**, not a wash |
+| Accent fill hover | `#086670` | white label 6.7:1 |
+| Accent border | `#07626c` | the primary button's 1px edge — deeper than the fill **and** than the hover |
+| Accent label | `#ffffff` | the label **on** accent fill · 5.5:1 |
+| Accent plane | `#d3ebef` | active nav wash, tour chip · accent ink reads 5.0:1 on it |
+| Accent plane strong | `#c3e9f0` | the tour chip's pulse peak only · accent ink 4.8:1 |
+| Accent plane border | `#a5d9e4` | the tour chip's edge · 1.45:1 on plane |
 
-A neutral wash cannot separate itself from a neutral plane by hue, so the active-nav and tour-chip
-washes separate by **lightness** instead — `#dfe3e8` is a full step darker than the page plane
-(1.21:1) where the old cerulean wash was nearly flat against it (1.12:1) and relied on hue to read.
+The charcoal wash had to separate itself from a neutral plane by **lightness** alone, because it had
+no hue to do it with. A teal wash separates by both, so it can stay genuinely pale and still read as
+a distinct surface (1.17:1 against the plane). The pulse peak steps up in saturation more than in
+darkness, because the label on it still has to clear AA at the peak.
+
+Every ratio in this table is measured, not asserted. `node scripts/contrast.mjs` reads the tokens
+out of `apps/web/app/globals.css` and checks each pair against the threshold that applies to what
+the pair is *for* — 4.5:1 where the foreground is text, 3:1 where it is a dot, a line, a ring or an
+edge — plus the separation floors a wash has to clear to be visible at all. `--hues` prints the hue
+wheel and the accent's distance from each reserved hue. Re-run it rather than re-deriving a number
+by eye.
 | Brand success | `#317b64` | pastel mint ink · restored, positive delta · 5.1:1 |
 | Success ink / plane | `#2c7159` / `#e6f7ef` | 5.2:1 |
 | Healing / attention | `#c6883a` | The healing state, and **only** the healing state |
@@ -146,18 +156,18 @@ meter) use default proportional figures.
 ## 3. Layout
 
 ```
-┌────────────┬──────────────────────────────────────────────┐
-│            │  Command bar — intent + URL          [Run]   │
-│  Sidebar   ├──────────────────────────────────────────────┤
-│  240px     │  Collector header · HealthBadge · CreditMeter │
-│            ├──────────────────────────────────────────────┤
-│ Take a tour│  [ Table | Chart | JSON | Chat | Ledger ]     │
-│ Workspaces ├──────────────────────────────────────────────┤
+┌────────────┬──────────────────────────────────────┐
+│            │   [ Table | Chart | JSON | Chat | Ledger ]   │  ← sticky, centred
+│  Sidebar   ├────────────────────────────────────────────┤
+│  240px     │  Command bar — intent + URL          [Run]   │
+│            ├────────────────────────────────────────────┤
+│ Take a tour│  Collector header · HealthBadge · CreditMeter │
+│ Workspaces ├────────────────────────────────────────────┤
 │ Collectors │                                              │
-│            │                                              │
-│            │  Active panel                                │
-│            │                                              │
-└────────────┴──────────────────────────────────────────────┘
+│            │  Active panel — 560px floor, no header       │
+│ New        │                                              │
+│ collector  │                                              │
+└────────────┴────────────────────────────────────────┘
 ```
 
 Sidebar `240px` fixed, page plane background, hairline right border. Content max-width `1440px`,
@@ -170,6 +180,27 @@ it, and in practice nobody found it.
 
 **Tabs, not resizable panels.** Your original spec called for resizable panels; they cost half a day,
 they're fiddly to record, and they add nothing to "finished and readable." Cut.
+
+**The view switcher is at the top, centred, and sticky.** It began as a row of underlined tabs on the
+observation card, which put the control that decides *what you are looking at* inside the thing it
+decides about — and below the fold on a laptop, so it only existed once you had already scrolled to
+the panel. At the top it is the one piece of chrome always on screen, and everything under it is the
+answer to it. Three consequences worth knowing:
+
+- It is a **segmented control**, not an underline. An underline reads as "these are sections of the
+  card below"; a segmented control reads as "pick one," which is what this is. Both radii are the
+  6px control radius — no fifth radius was invented for it.
+- It is centred with a `1fr auto 1fr` grid rather than `justify-center`, because the export links
+  sit in the right cell and a flex row would push the buttons off-centre by half their width.
+- Selecting a view **scrolls the panel into view when it is not already usefully on screen** — more
+  than 320px of it, or all of it for a short one. Without that, pressing a tab from the top of the
+  page changes something a thousand pixels away and reads as a dead button.
+
+**The panel carries no header.** The switcher already says what you are looking at; a caption
+repeating it three hundred pixels below would be labelling a control, not a panel. It holds a
+**560px minimum height** so no view resizes the page — raised from 420px when SQLChat became a
+fixed-height conversation, since a panel taller than its neighbours reintroduces exactly the layout
+shift the floor exists to prevent.
 
 ---
 
@@ -333,8 +364,19 @@ without dismissing anything.
 - This route is filmed in doc 04 Beat 5f as a single continuous click. It cannot flash, redirect
   twice, or show a loading state longer than a skeleton.
 
-**SQLChat.** Messages above, input below. The generated SQL renders in a collapsed mono block beneath
-each answer, expandable, with a copy button. Never hide it.
+**SQLChat.** Messages above, input below — built as a conversation rather than a form with a
+transcript over it. The panel owns a fixed height and **only the history scrolls**; the composer is
+welded to the bottom, so the input does not walk further away the more it is used. The history pins
+itself to the bottom as it grows, in the same frame the message paints, because an answer that lands
+below the fold reads as nothing having happened. Enter sends, Shift+Enter breaks the line.
+
+The two roles are shaped differently, not merely aligned differently: a question is short and gets a
+bubble; an answer carries a SQL block and often a result table, and wrapping that in a bubble makes a
+nested box of boxes — so an answer sits open on the surface behind a small mark.
+
+The generated SQL renders in a collapsed mono block beneath each answer, expandable, with a copy
+button. Never hide it. A refused or failed query still shows its SQL; that is the case where seeing
+it matters most.
 
 **CreditMeter.** Sidebar footer. Balance, thin meter, and today's spend. Turns amber below 20%.
 
@@ -393,7 +435,7 @@ the tour starts rather than presenting an empty frame.
 **The launcher.** A chip carrying accent ink on the accent plane, with a visible border and a §4
 dot: the only filled, bordered element in a rail that is otherwise plain text, which is what makes
 it findable without making it loud. It is deliberately **not** the solid `primary` treatment — §1
-allows one primary on screen and the Run button is it, so a second charcoal block would make "what
+allows one primary on screen and the Run button is it, so a second teal block would make "what
 do I do here" ambiguous. It appears only on collector routes, since every stop targets one.
 
 The chip **pulses on arrival and then stops**: background and border cycle to `--accent-plane-strong`
@@ -454,7 +496,7 @@ This is what the Suit-Up criterion actually measures. Every panel needs all four
 - [ ] **Error** — what failed, in plain language, plus a retry
 - [ ] **Populated**
 
-Plus globally: focus rings on every interactive element (accent charcoal, 2px offset) · 44px minimum touch
+Plus globally: focus rings on every interactive element (accent teal, 2px offset) · 44px minimum touch
 targets · `prefers-reduced-motion` honoured · no console errors or warnings on any route · no layout
 shift on any state transition.
 

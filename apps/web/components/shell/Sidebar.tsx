@@ -64,7 +64,7 @@ export interface SidebarData {
  * fill or a border, so a washed chip with a real edge is unambiguous without being loud.
  *
  * It is deliberately *not* the solid `primary` treatment. Doc 05 §1 allows one primary on screen
- * and the Run button in the command bar is it; two charcoal blocks competing would make "what do
+ * and the Run button in the command bar is it; two teal blocks competing would make "what do
  * I do here" ambiguous, which is the exact failure the one-accent rule prevents. The chip is the
  * accent's quiet register: accent ink on an accent wash, at 9.0:1.
  *
@@ -101,10 +101,12 @@ export function SidebarContent({
   workspaces,
   onNavigate,
   onStartTour,
+  onNewCollector,
   pulseTour = false,
 }: SidebarData & {
   onNavigate?: () => void;
   onStartTour?: () => void;
+  onNewCollector?: () => void;
   pulseTour?: boolean;
 }) {
   const pathname = usePathname();
@@ -173,11 +175,15 @@ export function SidebarContent({
           })}
         </ul>
 
+        {/* Opens the create dialog rather than navigating. The three things a collector needs are
+            a short form, and a reader who decides against it halfway through should get their page
+            back rather than have to find their way home from a route they did not want. */}
         <button
           type="button"
-          className="mt-2 flex w-full items-center gap-2 rounded-control px-3 py-2 text-body text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
+          onClick={onNewCollector}
+          className="group mt-2 flex w-full items-center gap-2 rounded-control px-3 py-2 text-body text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
         >
-          <PlusIcon size={15} className="shrink-0 text-ink-muted" />
+          <PlusIcon size={15} className="shrink-0 text-ink-muted transition-colors group-hover:text-accent" />
           New collector
         </button>
       </nav>
@@ -192,8 +198,13 @@ export function Sidebar({
   collectors,
   workspaces,
   onStartTour,
+  onNewCollector,
   pulseTour = false,
-}: SidebarData & { onStartTour?: () => void; pulseTour?: boolean }) {
+}: SidebarData & {
+  onStartTour?: () => void;
+  onNewCollector?: () => void;
+  pulseTour?: boolean;
+}) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-hairline bg-plane md:block">
       <div className="sticky top-0 h-screen">
@@ -201,6 +212,7 @@ export function Sidebar({
           collectors={collectors}
           workspaces={workspaces}
           onStartTour={onStartTour}
+          onNewCollector={onNewCollector}
           pulseTour={pulseTour}
         />
       </div>

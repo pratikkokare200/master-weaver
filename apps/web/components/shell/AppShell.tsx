@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { CloseIcon, MenuIcon } from '@/components/icons';
+import { NewCollectorDialog } from '@/components/shell/NewCollectorDialog';
 import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
 import type { SidebarData } from '@/components/shell/Sidebar';
 import { ProductTour } from '@/components/tour/ProductTour';
@@ -35,10 +36,17 @@ export function AppShell({
   // a rehearsal is exactly how it would fail to appear on the take that counts.
   const [tourOpened, setTourOpened] = useState(false);
 
+  // The create dialog is owned here for the same reason the tour is: it has to sit above the mobile
+  // drawer, and the drawer is a sibling of the rail rather than an ancestor of it. Both entry
+  // points — the rail and the drawer — therefore drive one piece of state and cannot disagree.
+  const [creating, setCreating] = useState(false);
+
   const startTour = useCallback(() => {
     setTourOpened(true);
     setTourOpen(true);
   }, []);
+
+  const closeCreate = useCallback(() => setCreating(false), []);
 
   // Escape closes the drawer — every dismissible layer should answer to it.
   useEffect(() => {
@@ -56,6 +64,7 @@ export function AppShell({
         collectors={collectors}
         workspaces={workspaces}
         onStartTour={startTour}
+        onNewCollector={() => setCreating(true)}
         pulseTour={!tourOpened}
       />
 
@@ -80,6 +89,12 @@ export function AppShell({
               onStartTour={() => {
                 setDrawerOpen(false);
                 startTour();
+              }}
+              // Same reasoning as the tour: the drawer covers the page the dialog opens over, and
+              // two stacked overlays is one more than anyone can dismiss.
+              onNewCollector={() => {
+                setDrawerOpen(false);
+                setCreating(true);
               }}
               pulseTour={!tourOpened}
             />
@@ -106,6 +121,8 @@ export function AppShell({
           {children}
         </main>
       </div>
+
+      {creating ? <NewCollectorDialog onClose={closeCreate} /> : null}
 
       {tourOpen ? <ProductTour onClose={() => setTourOpen(false)} /> : null}
     </div>

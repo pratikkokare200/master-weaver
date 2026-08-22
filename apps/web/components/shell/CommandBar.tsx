@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { RunIcon } from '@/components/icons';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
  * Command bar — doc 05 §6.
  *
  * Full width, card surface, hairline border. A 2-row auto-growing textarea for the intent, a URL
- * field, and the single charcoal Run button.
+ * field, and the single teal Run button.
  *
  * "On submit it collapses into a status strip — the input does not sit there empty while a job
  * runs." An empty form beside a running job reads as though nothing happened; the strip states what
@@ -24,10 +24,16 @@ const MAX_TEXTAREA_HEIGHT = 120;
 export interface CommandBarProps {
   /** Prefills the URL field on a collector page. */
   defaultUrl?: string;
+  /**
+   * Prefills the description. Set by `/new`, which arrives carrying what the create dialog
+   * captured — the form is still fully editable there, because a review step you cannot change
+   * anything on is a confirmation dialog wearing a form's clothes.
+   */
+  defaultIntent?: string;
 }
 
-export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
-  const [intent, setIntent] = useState('');
+export function CommandBar({ defaultUrl = '', defaultIntent = '' }: CommandBarProps) {
+  const [intent, setIntent] = useState(defaultIntent);
   const [url, setUrl] = useState(defaultUrl);
   const [submitted, setSubmitted] = useState<{ intent: string; url: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -38,6 +44,13 @@ export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
     element.style.height = 'auto';
     element.style.height = `${Math.min(element.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
   }
+
+  // A prefilled description has to be sized once on mount. `rows={2}` is the right *empty* height,
+  // and a sentence arriving from the create dialog is routinely three lines — without this it lands
+  // in a two-row box with its own scrollbar, on the one screen whose whole job is to show it back.
+  useEffect(() => {
+    if (textareaRef.current) autoGrow(textareaRef.current);
+  }, []);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -59,7 +72,7 @@ export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
         data-tour="command-bar"
         className="flex items-center gap-4 rounded-card border border-hairline bg-surface px-6 py-4"
       >
-        {/* Charcoal, pulsing — the "working" signal. Apricot would misread as a healing event. */}
+        {/* Teal, pulsing — the "working" signal. Apricot would misread as a healing event. */}
         <span className="dot-pulse h-2 w-2 shrink-0 rounded-badge bg-accent" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body text-ink">{submitted.intent}</p>
@@ -86,6 +99,7 @@ export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
         id="intent"
         ref={textareaRef}
         rows={2}
+        maxLength={500}
         value={intent}
         onChange={(event) => {
           setIntent(event.target.value);
