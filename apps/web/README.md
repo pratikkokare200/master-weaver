@@ -10,8 +10,21 @@ npm run build
 npm run typecheck
 ```
 
-`@weaver/contracts` must be built first — `npm run build` inside `packages/contracts` — because this
-app imports the engine's real threshold constants rather than retyping them.
+**Four workspace packages must be built first.** This app imports the engine's real threshold
+constants, guard and writers rather than retyping them, and each resolves through `main:
+./dist/index.js` — so without their `dist/` the build fails at module resolution:
+
+```
+pnpm build:web     # from the repo root: contracts -> validation -> textsql/export -> next build
+```
+
+`pnpm --filter @weaver/web... build` is the same command; the `...` suffix means "and everything it
+depends on", and pnpm orders them topologically. It is also exactly what Vercel runs — see
+[`vercel.json`](vercel.json) and `docs/DEPLOYMENT.md` §9 — so a green local `build:web` is a
+meaningful rehearsal of the deploy rather than a different code path.
+
+`@weaver/brightdata` and `@weaver/healing` are deliberately outside that set: they are the worker's,
+and the filter excludes them.
 
 ## Design tokens
 

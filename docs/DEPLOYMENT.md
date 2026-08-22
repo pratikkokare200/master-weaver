@@ -1,4 +1,10 @@
-# Deploying the worker
+# Deployment
+
+**§1–8 are the worker (Layer C) on Railway. §9 is the web app (Layer A) on Vercel.** They share a
+database and nothing else — neither deploy can break the other, and the worker keeps collecting
+through a failed web deploy.
+
+## The worker
 
 Layer C is a long-running Node process with no HTTP surface. It polls a Postgres queue, runs a
 wall-clock-aligned cron, and spawns the Bright Data CLI as a subprocess. That shape rules out
@@ -302,3 +308,115 @@ What to watch instead:
 - **The ledger is advancing.** The real health check is a `runs` row every 15 minutes.
   `select max(finished_at) from runs` is the query that matters, and no platform can run it for you.
 - **Exit 78** means configuration, not crash. The message says which variable.
+
+---
+
+## 9 · The web app, on Vercel
+
+Layer A is a Next.js App Router build. Every route is `force-dynamic`, so there is no static
+prerender and **the build never touches the database** — a missing `DATABASE_URL` fails at request
+time, not at build time. Useful to know when reading a red build log: it is never the database.
+
+### Why the default build fails
+
+`apps/web` depends on four workspace packages by `workspace:*`, and each resolves through
+`main: ./dist/index.js`:
+
+```
+@weaver/contracts     threshold constants        (also in transpilePackages)
+@weaver/validation    field scoring
+@weaver/textsql       the generated-SQL guard
+@weaver/export        CSV and XLSX writers
+```
+
+`dist/` is gitignored and no built output is committed, so a bare `next build` in `apps/web` resolves
+four imports to files that do not exist. `transpilePackages` does not rescue this — it compiles a
+package Next has already resolved, and resolution is what fails.
+
+### The fix
+
+[`apps/web/vercel.json`](../apps/web/vercel.json) overrides the build command:
+
+```json
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @weaver/web... build"
+}
+```
+
+The `...` suffix means "and everything it depends on". pnpm builds the four in topological order and
+then runs `next build`, in one command, with no hand-maintained list to drift — add a fifth workspace
+dependency and it is picked up automatically. It also excludes `@weaver/brightdata` and
+`@weaver/healing`, which are the worker's and would only slow the build.
+
+The filter is deliberately **unquoted**: it contains no shell-special characters, and single quotes
+would break `pnpm build:web` on Windows, where npm scripts run through `cmd.exe` and single quotes
+are literal characters rather than quoting.
+
+`installCommand` is deliberately **not** set. Vercel detects `pnpm-workspace.yaml` at the repository
+root and installs from there, which is correct; overriding it is how that gets broken.
+
+### Dashboard settings
+
+| Setting | Value |
+|---|---|
+| Root Directory | **`apps/web`** |
+| Include files outside the Root Directory | **on** (the default) — the workspace packages live outside it |
+| Framework Preset | Next.js (auto-detected) |
+| Build / Install / Output | leave blank — `vercel.json` supplies the build, Vercel handles the rest |
+
+### Environment variables
+
+Settings -> Environment Variables. All three are server-side; **none takes a `NEXT_PUBLIC_` prefix**,
+which would inline it into the browser bundle.
+
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | yes | session pooler, `postgres.<project-ref>` |
+| `DATABASE_URL_READONLY` | Chat only | session pooler, `weaver_readonly.<project-ref>` |
+| `GROQ_API_KEY` | Chat only | mark Sensitive |
+| `GROQ_MODEL` | no | defaults to `llama-3.3-70b-versatile` |
+
+Through Supavisor the project ref is a suffix on the **role name**, not part of the hostname:
+
+```
+postgresql://weaver_readonly.<project-ref>:<password>@aws-1-<region>.pooler.supabase.com:5432/postgres
+```
+
+Port **5432**, session mode. Not 6543 — see `docs/MIGRATION.md`. Copy the host from Dashboard ->
+Connect rather than typing it; the `aws-0` / `aws-1` prefix varies per project and a wrong guess
+gives a DNS failure that reads like an auth failure.
+
+Set the pair for **Production and Preview**. Production-only leaves preview deployments reporting
+Chat as unconfigured, which during a demo looks like a bug. `isTextSqlConfigured()` requires both, so
+one without the other configures nothing.
+
+**Vercel binds environment variables at deploy time.** Saving one changes no running deployment —
+redeploy after any edit.
+
+### Verifying
+
+```bash
+pnpm build:web        # from the repo root: the same command Vercel runs
+```
+
+Then against the deployment:
+
+```bash
+curl -X POST https://<app>.vercel.app/api/collectors/<uuid>/ask \
+  -H 'Content-Type: application/json' -d '{"question":"how many runs are there?"}'
+```
+
+| Response | Meaning |
+|---|---|
+| `501` | `DATABASE_URL_READONLY` or `GROQ_API_KEY` missing from this environment |
+| `NotConfiguredError` naming a superuser | the read-only URL points at `postgres`, not `weaver_readonly` |
+| an answer plus a `sql` field | configured |
+
+### Known risk: the pnpm version
+
+`packageManager` pins `pnpm@11.9.0`, and `pnpm-workspace.yaml` uses the `allowBuilds:` key, which is
+pnpm 11 syntax. If Vercel's Corepack does not offer 11.x the install step fails there — before any
+of the above matters. The fix is to pin `packageManager` to the newest pnpm Vercel does support and
+convert `allowBuilds:` to that version's spelling. Not changed pre-emptively: the lockfile is
+`lockfileVersion: 9.0` and downgrading it blind is the worse trade.
