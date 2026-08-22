@@ -22,4 +22,4 @@ export { SCHEMA, schemaPrompt } from './schema.js';
 export type { ColumnDoc, TableDoc } from './schema.js';
 
 export { systemPrompt, parseAnswer } from './prompt.js';
-export type { PromptOptions, ParsedAnswer } from './prompt.js';
+export type { PromptOptions, ParsedAnswer, CollectorField } from './prompt.js';

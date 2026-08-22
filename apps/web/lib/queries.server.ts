@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { CollectorContract, GoldenSetShape, RunState } from '@weaver/contracts';
 import type { EpisodeRecord, RunRecord } from '@weaver/export';
+import type { CollectorField } from '@weaver/textsql';
 
 import { query } from './db.server';
 import type {
@@ -610,4 +611,48 @@ export async function getCollectorName(collectorId: string): Promise<string | nu
     collectorId,
   ]);
   return rows[0]?.name ?? null;
+}
+
+/** What text-to-SQL tells the model about the collector being asked about. */
+export interface CollectorPromptContext {
+  readonly name: string;
+  /** `collectors.intent_prompt` — what the operator asked this collector to extract. */
+  readonly intentPrompt: string | null;
+  /** The contract's field names and declared types: the real keys inside `runs."rows"`. */
+  readonly fields: CollectorField[];
+}
+
+/**
+ * The collector, as text-to-SQL needs to describe it.
+ *
+ * Deliberately not folded into {@link getCollectorName}: that one is on the export path, which runs
+ * per download and wants a name, not a contract. The two have different callers and different
+ * costs, and merging them would make every spreadsheet export parse a jsonb column it discards.
+ *
+ * `contract` is jsonb, so it is whatever was written into it — read defensively rather than cast.
+ * A collector with a malformed contract must still be able to answer questions from its schema;
+ * losing the field list degrades an answer, but throwing here loses the whole feature.
+ */
+export async function getCollectorPromptContext(
+  collectorId: string,
+): Promise<CollectorPromptContext | null> {
+  const rows = await query<{
+    name: string;
+    intent_prompt: string | null;
+    contract: unknown;
+  }>('select name, intent_prompt, contract from collectors where id = $1', [collectorId]);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const declared = (row.contract as { fields?: unknown } | null)?.fields;
+  const fields: CollectorField[] = Array.isArray(declared)
+    ? declared.flatMap((entry) => {
+        const field = entry as { name?: unknown; type?: unknown } | null;
+        if (typeof field?.name !== 'string' || field.name.trim() === '') return [];
+        return [{ name: field.name, type: typeof field.type === 'string' ? field.type : 'text' }];
+      })
+    : [];
+
+  return { name: row.name, intentPrompt: row.intent_prompt, fields };
 }

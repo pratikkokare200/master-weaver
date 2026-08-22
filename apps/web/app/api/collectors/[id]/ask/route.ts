@@ -7,7 +7,7 @@ import {
 
 import { isUuid } from '@/lib/db.server';
 import { GroqError, chat, isGroqConfigured } from '@/lib/groq.server';
-import { getCollectorName } from '@/lib/queries.server';
+import { getCollectorPromptContext } from '@/lib/queries.server';
 import { NotConfiguredError, runGeneratedQuery } from '@/lib/readonly.server';
 
 /**
@@ -19,7 +19,8 @@ import { NotConfiguredError, runGeneratedQuery } from '@/lib/readonly.server';
  *
  * The sequence:
  *
- *   1. Groq turns the question into one statement, told the schema and told to bind `$1`.
+ *   1. Groq turns the question into one statement, told the schema, told what this collector
+ *      actually holds, and told to bind `$1`.
  *   2. `assertReadOnlySql` refuses anything that is not a single read.
  *   3. The statement runs as `weaver_readonly` inside a read-only transaction, wrapped in a limit.
  *   4. Groq summarises the rows it got back — and only those rows.
@@ -81,8 +82,11 @@ export async function POST(
     return fail('text-to-SQL is not configured: GROQ_API_KEY is not set', 501);
   }
 
-  const collectorName = await getCollectorName(id);
-  if (collectorName === null) return fail('no such collector', 404);
+  // The collector's own description and contract, not just its name. A model told the schema still
+  // does not know what the rows ARE, and answers "the most expensive laptop" by filtering for the
+  // word "laptop" — which describes every row and so matches none of the product names.
+  const collector = await getCollectorPromptContext(id);
+  if (collector === null) return fail('no such collector', 404);
 
   // ---------------------------------------------------------------------------------------------
   // 1 · Question to SQL
@@ -93,7 +97,14 @@ export async function POST(
     raw = await chat({
       json: true,
       messages: [
-        { role: 'system', content: systemPrompt({ collectorName }) },
+        {
+          role: 'system',
+          content: systemPrompt({
+            collectorName: collector.name,
+            intentPrompt: collector.intentPrompt,
+            fields: collector.fields,
+          }),
+        },
         { role: 'user', content: question },
       ],
     });
