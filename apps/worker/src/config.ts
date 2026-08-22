@@ -200,3 +200,63 @@ export function loadConfig(env: NodeJS.ProcessEnv, deps: LoadConfigDeps = {}): W
     logLevel: logLevel as WorkerConfig['logLevel'],
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Platform stop grace
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * How long each platform waits between SIGTERM and SIGKILL, where that is fixed and we cannot
+ * change it.
+ *
+ * Fly is absent deliberately: its `kill_timeout` is configurable, so there is nothing to warn about.
+ * These two are not, and the number is the whole reason `WORKER_SHUTDOWN_GRACE_MS` has to be lowered
+ * to deploy there.
+ *
+ * Detected by the variables each platform injects into every container it runs. Several per
+ * platform, not one: Railway has renamed its environment variable at least once — `RAILWAY_
+ * ENVIRONMENT` became `RAILWAY_ENVIRONMENT_NAME` — and a detector that silently stops matching is
+ * worse than no detector, because the warning it owes you simply never appears.
+ */
+const PLATFORM_STOP_GRACE_MS: readonly { env: readonly string[]; name: string; graceMs: number }[] = [
+  {
+    name: 'Railway',
+    env: ['RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_NAME', 'RAILWAY_SERVICE_ID'],
+    graceMs: 30_000,
+  },
+  { name: 'Render', env: ['RENDER', 'RENDER_SERVICE_ID'], graceMs: 30_000 },
+];
+
+/**
+ * Things that are wrong but not fatal, reported once at boot.
+ *
+ * The case this exists for: a shutdown grace longer than the platform's own. Nothing fails, and
+ * nothing looks wrong — until a deploy interrupts a job, the platform sends SIGKILL at 30 seconds
+ * while the worker is still waiting out its 240, and the process dies with **no shutdown log line
+ * at all**. A forced exit at least says why it happened; a SIGKILL says nothing, which is the
+ * expensive kind of silence.
+ *
+ * A warning rather than a `ConfigError`, because the worker still runs correctly — only its
+ * shutdown is worse than it thinks. Refusing to boot over it would be the wrong trade.
+ */
+export function configWarnings(
+  config: WorkerConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): string[] {
+  const warnings: string[] = [];
+
+  for (const platform of PLATFORM_STOP_GRACE_MS) {
+    const onPlatform = platform.env.some((name) => (env[name] ?? '').trim() !== '');
+    if (!onPlatform) continue;
+    if (config.shutdownGraceMs < platform.graceMs) continue;
+
+    warnings.push(
+      `WORKER_SHUTDOWN_GRACE_MS is ${config.shutdownGraceMs}ms, but ${platform.name} sends SIGKILL ` +
+        `about ${platform.graceMs / 1_000}s after SIGTERM. The in-flight job will be killed without ` +
+        'a shutdown log line. Set WORKER_SHUTDOWN_GRACE_MS=25000 so the worker exits on its own ' +
+        'terms inside that window.',
+    );
+  }
+
+  return warnings;
+}

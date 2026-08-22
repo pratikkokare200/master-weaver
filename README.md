@@ -19,15 +19,15 @@ means something if the system can also say *no*.
 
 ## What is actually running
 
-Not a prototype path — a live ledger, as of 2026-08-21:
+Not a prototype path — a live ledger, as of 2026-08-22:
 
 | | |
 |---|---|
-| Runs since 2026-08-19 | **168**, one every 15 minutes |
+| Runs since 2026-08-19 | **208**, one every 15 minutes |
 | Healing episodes | **5**, every one of them QUARANTINED |
 | Bright Data heal attempts | **3**, all scoring 1.000 at the canary gate |
 | Repairs committed then reverted by the golden set | **2** |
-| Tests | **420**, 0 failing — everything touching the database runs against real Postgres |
+| Tests | **426**, 0 failing — everything touching the database runs against real Postgres |
 
 Five quarantines and no successes is not the number a demo wants, and it is the honest one. Two of
 those episodes were caught by the confirmation step: the repair scored a legitimate 1.0 on the page
@@ -104,7 +104,7 @@ packages/
   textsql/      the text-to-SQL guard, schema description and prompt           35 tests
 apps/
   web/          Layer A — the Observation Deck
-  worker/       Layer C — the autonomous engine                               129 tests
+  worker/       Layer C — the autonomous engine                               135 tests
   chaos-lab/    the target site, with three layouts to break on demand
 supabase/migrations/
   0001_initial_schema.sql · 0002_repair_jobs.sql · 0003_readonly_role.sql
@@ -154,7 +154,7 @@ same URL serve different markup — which is what a real redesign is, and the on
 |---|---|
 | [`docs/SCRAPER_STUDIO_INTEGRATION.md`](docs/SCRAPER_STUDIO_INTEGRATION.md) | How every Bright Data CLI command is used, and three API behaviours that changed the design |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What exists, where it is, and where the running system diverged from the plan |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deploying the worker, and why Fly rather than Render or Railway |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Deploying the worker to Railway, step by step, and what its 30-second stop grace costs |
 | [`docs/MIGRATION.md`](docs/MIGRATION.md) | Moving the ledger to hosted Supabase without losing the history |
 | [`docs/AUDIT-DAY-3.md`](docs/AUDIT-DAY-3.md) | A mid-build audit against the running system, including five findings it produced |
 | [`docs/decisions/`](docs/decisions/) | ADRs 001–005 |
@@ -175,6 +175,8 @@ Stated here rather than left to be discovered:
   scored 1.0 and were approved. Rejection, refinement and retry are proven against real Postgres with
   a faked CLI.
 - **The worker runs on a workstation**, started by a scheduled task. It is containerised and
-  Fly-ready ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)) but not yet deployed.
+  Railway-ready ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)) but not yet deployed. Railway's stop
+  grace is fixed at ~30 s, so `WORKER_SHUTDOWN_GRACE_MS` is lowered to 25 s there and a deploy that
+  lands during a job — about 0.8% of them — abandons it to the stale-claim reaper.
 - **Text-to-SQL is unmetered.** The endpoint is not rate limited, so a loop of questions spends Groq
   tokens.

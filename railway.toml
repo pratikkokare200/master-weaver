@@ -1,0 +1,52 @@
+# =============================================================================================
+# Railway — @weaver/worker (Layer C).
+#
+# At the repository ROOT rather than beside the Dockerfile, because that is where Railway looks by
+# default. Leave the service's Root Directory unset: the worker depends on four workspace packages
+# by `workspace:*`, so the build context has to be the repo root or the Dockerfile cannot see them.
+#
+# Config-as-code covers build and deploy settings only. Environment variables are NOT settable from
+# this file — they live in the service, and `docs/DEPLOYMENT.md` §3 lists the four that matter.
+#
+# The one that is easy to miss is WORKER_SHUTDOWN_GRACE_MS=25000. Railway sends SIGKILL about 30
+# seconds after SIGTERM and does not let you change that, so a worker left on its 240-second default
+# is killed mid-job with no shutdown log line at all. The worker warns at boot if it detects Railway
+# and the grace is still too long.
+# =============================================================================================
+
+[build]
+  builder = "DOCKERFILE"
+  dockerfilePath = "apps/worker/Dockerfile"
+
+  # Rebuild only when something the worker actually contains has changed. Without this, a commit
+  # touching apps/web or the docs redeploys the engine — which on a platform with a 30-second stop
+  # grace means an interrupted job for no reason at all.
+  watchPatterns = [
+    "apps/worker/**",
+    "packages/**",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "package.json",
+    "railway.toml",
+  ]
+
+[deploy]
+  # Exactly one. Two workers against one queue is safe for correctness — the claim is
+  # FOR UPDATE SKIP LOCKED and the cron's INSERT is guarded by NOT EXISTS — but each one bills for
+  # its own scrapes.
+  numReplicas = 1
+
+  # A worker that exits has stopped collecting, whatever its exit code. `ALWAYS` gets it back and
+  # the logs say why it left. The cap stops a genuine misconfiguration — exit 78, EX_CONFIG —
+  # from restarting forever: ten attempts, then it stays down where it is visible.
+  restartPolicyType = "ALWAYS"
+  restartPolicyMaxRetries = 10
+
+  # No healthcheckPath, deliberately. This process opens no port; a health check would wait for a
+  # listener that never arrives and report a working deploy as failed. Liveness here is the process
+  # being alive, which is what the restart policy above is for — and the real check is the ledger
+  # advancing, which no platform can see. See docs/DEPLOYMENT.md §7.
+
+  # Never sleep. Railway's app sleeping is built for request-driven services that can wake on an
+  # inbound request; nothing ever arrives here, so a sleeping worker is a stopped cron.
+  sleepApplication = false

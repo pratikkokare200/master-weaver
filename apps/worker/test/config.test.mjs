@@ -11,7 +11,7 @@ import { test } from 'node:test';
 
 import { BREAKER_LIMITS } from '@weaver/contracts';
 
-import { ConfigError, loadConfig, resolveSsl } from '../dist/config.js';
+import { ConfigError, configWarnings, loadConfig, resolveSsl } from '../dist/config.js';
 
 const MINIMAL = {
   DATABASE_URL: 'postgresql://user:pw@db.abcdefg.supabase.co:5432/postgres',
@@ -87,4 +87,59 @@ test('the pool size is tunable for a project near its connection cap', () => {
   assert.equal(loadConfig({ ...MINIMAL }).dbPoolMax, 4);
   assert.equal(loadConfig({ ...MINIMAL, WORKER_DB_POOL_MAX: '1' }).dbPoolMax, 1);
   assert.throws(() => loadConfig({ ...MINIMAL, WORKER_DB_POOL_MAX: '0' }), /at least 1/);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Platform stop grace
+//
+// Railway and Render both SIGKILL about 30 seconds after SIGTERM, and neither lets you change it.
+// A worker left on the 240-second default there is killed mid-job with no shutdown log line at all,
+// which is the failure this warning exists to make visible.
+// ---------------------------------------------------------------------------------------------
+
+test('the default grace is flagged on a platform that cannot honour it', () => {
+  const config = loadConfig({ ...MINIMAL }, { hostname: 'railway', pid: 1 });
+  const warnings = configWarnings(config, { RAILWAY_ENVIRONMENT: 'production' });
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Railway sends SIGKILL/);
+  assert.match(warnings[0], /WORKER_SHUTDOWN_GRACE_MS=25000/, 'the warning says what to set');
+});
+
+test('a grace inside the platform window is not flagged', () => {
+  const config = loadConfig(
+    { ...MINIMAL, WORKER_SHUTDOWN_GRACE_MS: '25000' },
+    { hostname: 'railway', pid: 1 },
+  );
+  assert.deepEqual(configWarnings(config, { RAILWAY_ENVIRONMENT: 'production' }), []);
+});
+
+test('a grace exactly at the platform window is flagged — the race is not worth winning', () => {
+  const config = loadConfig(
+    { ...MINIMAL, WORKER_SHUTDOWN_GRACE_MS: '30000' },
+    { hostname: 'railway', pid: 1 },
+  );
+  assert.equal(configWarnings(config, { RAILWAY_ENVIRONMENT: 'production' }).length, 1);
+});
+
+test('nothing is flagged off-platform, where the grace is ours to choose', () => {
+  const config = loadConfig({ ...MINIMAL }, { hostname: 'laptop', pid: 1 });
+  assert.deepEqual(configWarnings(config, {}), [], 'no platform, no warning');
+  assert.deepEqual(
+    configWarnings(config, { FLY_APP_NAME: 'master-weaver-worker' }),
+    [],
+    'Fly kill_timeout is configurable, so there is nothing to warn about',
+  );
+});
+
+test('Render is detected too', () => {
+  const config = loadConfig({ ...MINIMAL }, { hostname: 'render', pid: 1 });
+  assert.match(configWarnings(config, { RENDER: 'true' })[0], /Render sends SIGKILL/);
+});
+
+test('Railway is detected under every name it has used for the variable', () => {
+  const config = loadConfig({ ...MINIMAL }, { hostname: 'railway', pid: 1 });
+  for (const name of ['RAILWAY_ENVIRONMENT', 'RAILWAY_ENVIRONMENT_NAME', 'RAILWAY_SERVICE_ID']) {
+    assert.equal(configWarnings(config, { [name]: 'production' }).length, 1, `not detected via ${name}`);
+  }
 });

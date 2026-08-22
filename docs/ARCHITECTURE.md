@@ -4,7 +4,7 @@ The designed architecture lives in [`03_PRD_AND_ARCHITECTURE.md`](../03_PRD_AND_
 This document is its companion: what actually exists, where the code is, and — the part worth
 reading — the places where the running system diverged from the plan and why.
 
-Last verified 2026-08-21 against a live database with 168 runs and 5 healing episodes.
+Last verified 2026-08-22 against a live database with 208 runs and 5 healing episodes.
 
 ---
 
@@ -30,7 +30,7 @@ supabase/migrations/
   0003_readonly_role.sql
 ```
 
-**420 tests, 0 failing.** Everything touching the database runs against real Postgres (PGlite), not
+**426 tests, 0 failing.** Everything touching the database runs against real Postgres (PGlite), not
 a mock — a decision that has paid for itself repeatedly, most sharply in §5.
 
 ### The dependency rule
@@ -264,4 +264,5 @@ Stated plainly rather than left for someone to discover:
 - **A collector with no golden baseline can never reach RESTORED.** Conservative in the right
   direction, but a collector that breaks before its first healthy run has nothing to regress
   against.
-- **The worker runs on a workstation**, started by a Scheduled Task, not on a deployed host.
+- **The worker runs on a workstation**, started by a Scheduled Task, not on a deployed host. The
+  image and its Railway configuration are in the repo and verified; the deploy itself has not run.

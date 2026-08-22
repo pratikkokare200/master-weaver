@@ -20,7 +20,7 @@ import { hostname } from 'node:os';
 
 import { createBrightDataClient } from '@weaver/brightdata';
 
-import { ConfigError, loadConfig } from './config.js';
+import { ConfigError, configWarnings, loadConfig } from './config.js';
 import { createPool, describeDatabase, poolQueryable } from './db.js';
 import { createNotifier } from './discord.js';
 import { createLogger } from './log.js';
@@ -47,6 +47,9 @@ async function main(): Promise<number> {
     level: config.logLevel,
     base: { component: 'worker', worker_id: config.workerId },
   });
+
+  // Non-fatal misconfiguration, said once, before anything else competes for the log.
+  for (const warning of configWarnings(config, process.env)) log.warn(warning);
 
   const lifecycle = createLifecycle({ log, graceMs: config.shutdownGraceMs });
 
