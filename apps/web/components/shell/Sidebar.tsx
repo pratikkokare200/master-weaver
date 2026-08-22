@@ -55,12 +55,58 @@ export interface SidebarData {
   workspaces: { id: string; name: string; collectorIds: string[] }[];
 }
 
+/**
+ * The tour launcher.
+ *
+ * It sits at the top of the nav, above the workspace list, because the previous placement — last
+ * in the rail, under the collectors, in the same muted grey as every inert label around it —
+ * was findable only by someone already looking for it. Nothing else in this sidebar carries a
+ * fill or a border, so a washed chip with a real edge is unambiguous without being loud.
+ *
+ * It is deliberately *not* the solid `primary` treatment. Doc 05 §1 allows one primary on screen
+ * and the Run button in the command bar is it; two charcoal blocks competing would make "what do
+ * I do here" ambiguous, which is the exact failure the one-accent rule prevents. The chip is the
+ * accent's quiet register: accent ink on an accent wash, at 9.0:1.
+ *
+ * `pulse` is owned by `AppShell` so the rail and the mobile drawer never disagree, and it is
+ * session state rather than persisted — every fresh load of the demo gets the cue, and a stale
+ * localStorage flag can never be the reason it fails to appear on stage.
+ */
+function TourChip({ onStartTour, pulse }: { onStartTour: () => void; pulse: boolean }) {
+  return (
+    <div className="px-1 pb-1 pt-2">
+      <button
+        type="button"
+        onClick={onStartTour}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-control border px-3 py-2',
+          'text-body font-medium text-accent transition-colors',
+          'border-accent-plane-border bg-accent-plane hover:bg-accent-plane-strong',
+          pulse && 'tour-pulse',
+        )}
+      >
+        <CompassIcon size={15} className="shrink-0 text-accent" />
+        Take a tour
+        {/* The §4 dot: pulsing opacity belongs to a dot and never to the label beside it. It
+            carries no meaning the text does not, so it is hidden from assistive tech. Its
+            animation is driven by `.tour-pulse` on the parent, so the two stop together. */}
+        <span className="tour-dot ml-auto h-2 w-2 shrink-0 rounded-badge bg-accent" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function SidebarContent({
   collectors,
   workspaces,
   onNavigate,
   onStartTour,
-}: SidebarData & { onNavigate?: () => void; onStartTour?: () => void }) {
+  pulseTour = false,
+}: SidebarData & {
+  onNavigate?: () => void;
+  onStartTour?: () => void;
+  pulseTour?: boolean;
+}) {
   const pathname = usePathname();
 
   // Every stop on the tour is on a collector page, so the trigger only appears there. A button that
@@ -78,6 +124,10 @@ export function SidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4" aria-label="Main">
+        {canTour && onStartTour ? (
+          <TourChip onStartTour={onStartTour} pulse={pulseTour} />
+        ) : null}
+
         <SectionLabel>Workspaces</SectionLabel>
         <ul>
           {workspaces.map((workspace) => (
@@ -132,19 +182,6 @@ export function SidebarContent({
         </button>
       </nav>
 
-      {canTour && onStartTour ? (
-        <div className="border-t border-hairline p-2">
-          <button
-            type="button"
-            onClick={onStartTour}
-            className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-body text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
-          >
-            <CompassIcon size={15} className="shrink-0 text-ink-muted" />
-            Take a tour
-          </button>
-        </div>
-      ) : null}
-
       <CreditMeter {...CREDIT_BALANCE} />
     </div>
   );
@@ -155,7 +192,8 @@ export function Sidebar({
   collectors,
   workspaces,
   onStartTour,
-}: SidebarData & { onStartTour?: () => void }) {
+  pulseTour = false,
+}: SidebarData & { onStartTour?: () => void; pulseTour?: boolean }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-hairline bg-plane md:block">
       <div className="sticky top-0 h-screen">
@@ -163,6 +201,7 @@ export function Sidebar({
           collectors={collectors}
           workspaces={workspaces}
           onStartTour={onStartTour}
+          pulseTour={pulseTour}
         />
       </div>
     </aside>

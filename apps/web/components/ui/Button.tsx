@@ -7,14 +7,18 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 /**
- * The one accent, used sparingly (doc 05 §1). `primary` is pastel cerulean and there should be at
+ * The one accent, used sparingly (doc 05 §1). `primary` is solid charcoal and there should be at
  * most one on screen at a time; everything else is a hairline-bordered secondary or a ghost.
  *
- * The primary button is a pastel *fill* carrying a deep cerulean label, not a saturated fill
- * carrying white. White on a genuinely pastel surface is unreadable, and darkening the fill until
- * white works turns the pastel back into the indigo this palette replaced — so the label goes dark
- * instead. The 1px cerulean border is what keeps the result a button rather than a soft patch of
- * colour: with shadows gone, the edge is the only thing asserting the shape.
+ * The primary button is a solid charcoal fill carrying a white label — the one place this palette
+ * does not use its pastel-wash/readable-ink split. The split exists because a saturated mid-tone
+ * cannot be both a soft fill and a legible background for text; charcoal has no such conflict, so
+ * white sits on it at 11.6:1. The pastel cerulean this replaced topped out at 7.0:1 with the
+ * darkest label it could carry, so going solid is a contrast gain, not a stylistic trade.
+ *
+ * The 1px border is a shade deeper than the fill rather than lighter. On a light plane a dark
+ * block already asserts its own shape, so the edge is no longer doing the work it did for a
+ * pastel — it just keeps the corner crisp where the fill meets the page.
  *
  * Minimum touch target is 36px tall in dense contexts and 44px for standalone actions (§8).
  */
