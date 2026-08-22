@@ -34,7 +34,7 @@ export function CollectorHeader({ collector, failedFields = [] }: CollectorHeade
       aria-label="Collector summary"
       className="rounded-card border border-hairline bg-surface"
     >
-      <div className="flex flex-col gap-6 p-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-8 p-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <h1 className="text-title font-semibold text-ink">{collector.name}</h1>
 
@@ -50,7 +50,7 @@ export function CollectorHeader({ collector, failedFields = [] }: CollectorHeade
 
           <p className="mt-3 max-w-2xl text-body text-ink-secondary">{collector.intent}</p>
 
-          <dl className="mt-6 flex flex-wrap items-start gap-x-8 gap-y-4">
+          <dl className="mt-8 flex flex-wrap items-start gap-x-8 gap-y-6">
             <FieldHealthTile fhs={collector.fhs} failedFields={failedFields} />
             <Meta label="Rows" value={formatOrDash(collector.rowCount)} />
             <Meta
@@ -61,7 +61,7 @@ export function CollectorHeader({ collector, failedFields = [] }: CollectorHeade
           </dl>
         </div>
 
-        <div className="flex w-full shrink-0 flex-col gap-3 lg:w-80">
+        <div className="flex w-full shrink-0 flex-col gap-4 lg:w-80">
           <CollectorPolicyBlock goldenSet={collector.goldenSet} />
           <HealthBadge state={collector.runState} collectorId={collector.id} />
         </div>

@@ -6,8 +6,8 @@ import { cn } from '@/lib/cn';
  * Placeholder: the numbers are seeded. Day 4 wires this to `brightdata budget`, which the adapter
  * already exposes — the props below are the shape that call returns.
  *
- * Turns amber below 20% remaining, per §6. That is an attention signal, which is the one use amber
- * is licensed for outside the healing state itself.
+ * Turns apricot below 20% remaining, per §6. That is an attention signal, which is the one use the
+ * healing hue is licensed for outside the healing state itself.
  */
 
 const LOW_BALANCE_RATIO = 0.2;
@@ -23,7 +23,7 @@ export function CreditMeter({ remaining, total, spentToday }: CreditMeterProps) 
   const isLow = ratio < LOW_BALANCE_RATIO;
 
   return (
-    <div className="border-t border-hairline px-4 py-3">
+    <div className="border-t border-hairline px-4 py-4">
       <div className="flex items-baseline justify-between">
         <span className="text-meta text-ink-muted">Credits</span>
         <span className={cn('text-cell font-semibold', isLow ? 'text-healing-ink' : 'text-ink')}>

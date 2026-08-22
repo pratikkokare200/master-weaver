@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
  * The repair confirmation — where a `PENDING_OPERATOR` break gets its answer.
  *
  * This is the surface the Discord deep link opens: `/c/<id>?action=repair` lands on the collector
- * with this panel already expanded, the diagnosis rendered and the amber badge in view, so the path
+ * with this panel already expanded, the diagnosis rendered and the apricot badge in view, so the path
  * from alert to decision is one click (doc 03 §6.3).
  *
  * Two things it deliberately does:
@@ -102,7 +102,7 @@ export function RepairConfirmation({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left"
       >
         <span className="flex items-center gap-2">
           <span aria-hidden className="h-2 w-2 rounded-badge bg-healing" />
@@ -114,8 +114,8 @@ export function RepairConfirmation({
       </button>
 
       {open ? (
-        <div className="flex flex-col gap-4 border-t border-hairline px-4 py-4">
-          <dl className="grid gap-3 sm:grid-cols-3">
+        <div className="flex flex-col gap-6 border-t border-hairline px-6 py-6">
+          <dl className="grid gap-6 sm:grid-cols-3">
             <div>
               <dt className="text-meta text-ink-muted">Health</dt>
               <dd className="text-stat tabular-nums text-ink">{fhs === null ? '—' : fhs.toFixed(2)}</dd>

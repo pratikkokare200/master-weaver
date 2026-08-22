@@ -60,7 +60,7 @@ const HEADLINE_STYLES: Record<HealthHeadline, HeadlineStyle> = {
     pulse: true,
   },
   DEGRADED: {
-    // Same amber as healing, deliberately static — this one is waiting on a human.
+    // Same apricot as healing, deliberately static — this one is waiting on a human.
     container: 'bg-healing-plane text-healing-ink',
     dot: 'var(--healing)',
     pulse: false,
@@ -86,7 +86,7 @@ const HEADLINE_STYLES: Record<HealthHeadline, HeadlineStyle> = {
  *
  * Doc 01 §2.1 — the primary spec for the state list — already distinguishes them: HEALTHY is
  * "✅ Healthy" and RESTORED is "✅ Pipeline Restored". So the six buckets stay exactly as they are
- * for *visual treatment* (both remain emerald-600 success styling), and only the label is resolved
+ * for *visual treatment* (both remain pastel-mint success styling), and only the label is resolved
  * per state.
  *
  * The strings come from `RUN_STATE_LABEL` in `@weaver/contracts` rather than being retyped here,
@@ -120,7 +120,7 @@ export function HealthBadge({ state, collectorId, className }: HealthBadgeProps)
   return (
     <div
       className={cn(
-        'badge-crossfade flex min-h-14 items-center gap-3 rounded-card border border-hairline px-3 py-2',
+        'badge-crossfade flex min-h-14 items-center gap-3 rounded-card border border-hairline px-4 py-3',
         style.container,
         className,
       )}

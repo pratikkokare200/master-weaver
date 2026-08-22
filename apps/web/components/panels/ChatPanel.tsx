@@ -221,7 +221,7 @@ export function ChatPanel({ state, collectorId }: { state: PanelState; collector
 
   return (
     <div className="flex h-full min-h-[320px] flex-col">
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-6">
         {visible.length === 0 ? (
           <div className="flex flex-col items-center gap-4">
             <EmptyState
@@ -255,7 +255,7 @@ export function ChatPanel({ state, collectorId }: { state: PanelState; collector
               >
                 <div
                   className={cn(
-                    'max-w-2xl rounded-card px-3 py-2 text-body',
+                    'max-w-2xl rounded-card px-4 py-3 text-body',
                     turn.role === 'user'
                       ? 'bg-accent-plane text-ink'
                       : turn.failed
@@ -287,7 +287,7 @@ export function ChatPanel({ state, collectorId }: { state: PanelState; collector
       </div>
 
       <form
-        className="flex items-center gap-3 border-t border-hairline p-4"
+        className="flex items-center gap-4 border-t border-hairline p-6"
         onSubmit={(event) => {
           event.preventDefault();
           void ask(draft);

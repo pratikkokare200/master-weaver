@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
  * Command bar — doc 05 §6.
  *
  * Full width, card surface, hairline border. A 2-row auto-growing textarea for the intent, a URL
- * field, and the single indigo Run button.
+ * field, and the single lavender Run button.
  *
  * "On submit it collapses into a status strip — the input does not sit there empty while a job
  * runs." An empty form beside a running job reads as though nothing happened; the strip states what
@@ -56,9 +56,9 @@ export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
     return (
       <section
         aria-label="Request status"
-        className="flex items-center gap-3 rounded-card border border-hairline bg-surface px-4 py-3"
+        className="flex items-center gap-4 rounded-card border border-hairline bg-surface px-6 py-4"
       >
-        {/* Indigo, pulsing — the "working" signal. Amber would misread as a healing event. */}
+        {/* Lavender, pulsing — the "working" signal. Apricot would misread as a healing event. */}
         <span className="dot-pulse h-2 w-2 shrink-0 rounded-badge bg-accent" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-body text-ink">{submitted.intent}</p>
@@ -75,7 +75,7 @@ export function CommandBar({ defaultUrl = '' }: CommandBarProps) {
     <form
       onSubmit={handleSubmit}
       aria-label="Create a collector"
-      className="rounded-card border border-hairline bg-surface p-4"
+      className="rounded-card border border-hairline bg-surface p-6"
     >
       <label htmlFor="intent" className="sr-only">
         What should this collector extract?

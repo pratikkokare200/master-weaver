@@ -11,6 +11,7 @@ import { ChatPanel } from '@/components/panels/ChatPanel';
 import { JsonPanel } from '@/components/panels/JsonPanel';
 import { LedgerPanel } from '@/components/panels/LedgerPanel';
 import { TablePanel } from '@/components/panels/TablePanel';
+import { TooltipBubble } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 import type { PanelState } from '@/lib/panelState';
 import type { LedgerEpisode, ProductRow } from '@/lib/seed';
@@ -24,15 +25,58 @@ import type { LedgerEpisode, ProductRow } from '@/lib/seed';
  * The panel body carries a fixed minimum height so switching tabs — or a panel moving between
  * loading, empty and populated — never resizes the page. Layout shift is the single most visible
  * polish failure, and it is what the "finished" criterion actually measures (doc 05 §8).
+ *
+ * Five one-word tabs is five guesses about what is behind each one. `Ledger` in particular reads as
+ * an accounting feature until you open it, and `JSON` and `Table` sound like the same thing shown
+ * twice. Each tab carries a tooltip naming what it holds and how it differs from its neighbours.
  */
 
 const TABS = [
-  { id: 'table', label: 'Table', icon: TableIcon },
-  { id: 'chart', label: 'Chart', icon: ChartIcon },
-  { id: 'json', label: 'JSON', icon: JsonIcon },
-  { id: 'chat', label: 'Chat', icon: ChatIcon },
-  { id: 'ledger', label: 'Ledger', icon: LedgerIcon },
-] as const satisfies ReadonlyArray<{ id: string; label: string; icon: (props: IconProps) => React.ReactElement }>;
+  {
+    id: 'table',
+    label: 'Table',
+    icon: TableIcon,
+    tip: 'Rows from the latest run, tidied into columns. A value that never came back shows as an em dash, never as a blank cell.',
+    tipAlign: 'start',
+  },
+  {
+    id: 'chart',
+    label: 'Chart',
+    icon: ChartIcon,
+    tip: 'Price and field health on one shared timeline, so a collapse in one lines up with the other. Dashed marks are repairs.',
+    tipAlign: 'start',
+  },
+  {
+    id: 'json',
+    label: 'JSON',
+    icon: JsonIcon,
+    tip: 'The raw payload exactly as the collector returned it — the table’s rows, before any tidying.',
+    tipAlign: 'center',
+  },
+  {
+    id: 'chat',
+    label: 'Chat',
+    icon: ChatIcon,
+    tip: 'Ask about this collector in plain English. The SQL behind each answer is always shown beneath it.',
+    tipAlign: 'end',
+  },
+  {
+    id: 'ledger',
+    label: 'Ledger',
+    icon: LedgerIcon,
+    tip: 'Every repair attempted here: the diagnosis, the score that approved or rejected it, and what it cost.',
+    tipAlign: 'end',
+  },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  icon: (props: IconProps) => React.ReactElement;
+  tip: string;
+  /* Anchored per tab rather than always centred: a centred bubble on the leftmost tab hangs off
+     the card, and on the rightmost it hangs off the viewport. Anchoring outward-in keeps every
+     bubble inside the strip at any width. */
+  tipAlign: 'start' | 'center' | 'end';
+}>;
 
 type TabId = (typeof TABS)[number]['id'];
 
@@ -97,12 +141,15 @@ export function ObservationTabs({
       {/* The rule and the export control sit OUTSIDE the tablist. A tablist may contain tabs and
           nothing else — a link inside it is announced as a tab that does not behave like one, and
           it lands in the middle of arrow-key navigation. */}
-      <div className="flex items-center border-b border-hairline px-2">
+      <div className="flex items-center border-b border-hairline px-4">
+        {/* The tablist wraps rather than scrolls on narrow screens. `overflow-x-auto` computes
+            `overflow-y` to `auto` as well, which would clip every tab's tooltip at the strip's
+            own edge — and five one-word tabs wrap perfectly well. */}
         <div
           role="tablist"
           aria-label="Collector views"
           onKeyDown={handleKeyDown}
-          className="flex min-w-0 items-center gap-1 overflow-x-auto"
+          className="flex min-w-0 flex-wrap items-center gap-1"
         >
           {TABS.map((tab) => {
             const isActive = tab.id === active;
@@ -119,8 +166,9 @@ export function ObservationTabs({
                 aria-controls={`panel-${tab.id}`}
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => setActive(tab.id)}
+                aria-describedby={`tip-${tab.id}`}
                 className={cn(
-                  'inline-flex min-h-11 shrink-0 items-center gap-2 border-b px-3 text-body transition-colors',
+                  'group relative inline-flex min-h-12 shrink-0 items-center gap-2 border-b px-4 text-body transition-colors',
                   // The active marker is a 1px border, never 2px — borders are hairlines here too.
                   isActive
                     ? 'border-accent font-medium text-accent'
@@ -129,6 +177,11 @@ export function ObservationTabs({
               >
                 <Icon size={15} />
                 {tab.label}
+                {/* Inside the button rather than wrapped around it: a tablist may contain tabs and
+                    nothing else, so there is nowhere outside to hang a wrapper. */}
+                <TooltipBubble id={`tip-${tab.id}`} side="bottom" align={tab.tipAlign}>
+                  {tab.tip}
+                </TooltipBubble>
               </button>
             );
           })}

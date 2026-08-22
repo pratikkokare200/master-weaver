@@ -1,6 +1,7 @@
 import { FHS_THRESHOLDS, classifyFhs } from '@weaver/contracts';
 
 import { AlertIcon } from '@/components/icons';
+import { HintLabel } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 import { EM_DASH, formatFhs } from '@/lib/format';
 
@@ -16,7 +17,17 @@ import { EM_DASH, formatFhs } from '@/lib/format';
  * whether the system repairs itself or asks.
  *
  * Status never rides on hue alone, so the caption always pairs an icon with a word.
+ *
+ * The caption is also the tile's one tooltip. "Field health" is the number the whole product turns
+ * on and the two words do not define themselves — a reader who does not know it is a weighted fill
+ * rate cannot tell whether 0.87 is a bad day or a broken collector. The bubble says which, and
+ * names the two thresholds the meter's ticks are already drawing.
  */
+
+const FIELD_HEALTH_TOOLTIP =
+  'The share of the contract’s fields that came back with usable values on the last run, ' +
+  'weighted by how much each field matters. At or above 0.95 the collector is healthy; below 0.60 ' +
+  'it repairs itself without asking. The ticks on the meter mark both.';
 
 const BAND_COLOR = {
   HEALTHY: 'var(--status-good)',
@@ -41,7 +52,16 @@ export function FieldHealthTile({ fhs, failedFields = [], className }: FieldHeal
   if (fhs === null) {
     return (
       <div className={cn('min-w-44', className)}>
-        <p className="text-meta text-ink-muted">Field health</p>
+        <HintLabel
+          id="fhs-tip-empty"
+          tip={FIELD_HEALTH_TOOLTIP}
+          side="top"
+          align="start"
+          width="wide"
+          className="text-meta text-ink-muted"
+        >
+          Field health
+        </HintLabel>
         <p className="mt-1 text-stat font-semibold leading-none text-ink-muted">{EM_DASH}</p>
         <div className="mt-3 h-1 w-full rounded-badge bg-hairline" />
         <p className="mt-2 text-meta text-ink-muted">No runs yet</p>
@@ -55,7 +75,16 @@ export function FieldHealthTile({ fhs, failedFields = [], className }: FieldHeal
 
   return (
     <div className={cn('min-w-44', className)}>
-      <p className="text-meta text-ink-muted">Field health</p>
+      <HintLabel
+        id="fhs-tip"
+        tip={FIELD_HEALTH_TOOLTIP}
+        side="top"
+        align="start"
+        width="wide"
+        className="text-meta text-ink-muted"
+      >
+        Field health
+      </HintLabel>
       <p className="mt-1 text-stat font-semibold leading-none" style={{ color }}>
         {formatFhs(fhs)}
       </p>

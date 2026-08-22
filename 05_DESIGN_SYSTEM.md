@@ -41,34 +41,58 @@ shared component library.
 
 ### 2.1 Surfaces & ink
 
-| Role | Light | Dark | Tailwind |
+| Role | Light | Dark | Note |
 |---|---|---|---|
-| Page plane | `#f8fafc` | `#020617` | slate-50 / slate-950 |
-| Card surface | `#ffffff` | `#0f172a` | white / slate-900 |
-| Raised surface (dropdown, tooltip) | `#ffffff` | `#1e293b` | white / slate-800 |
-| Hairline border | `#e2e8f0` | `#1e293b` | slate-200 / slate-800 |
-| Primary ink | `#0f172a` | `#f8fafc` | slate-900 / slate-50 |
-| Secondary ink | `#475569` | `#94a3b8` | slate-600 / slate-400 |
-| Muted ink (axis, meta, timestamps) | `#94a3b8` | `#64748b` | slate-400 / slate-500 |
+| Page plane | `#f7f6f9` | `#14161d` | soft off-white, a breath of lavender in the grey |
+| Card surface | `#ffffff` | `#1b1e27` | |
+| Raised surface (dropdown) | `#ffffff` | `#232733` | |
+| Hairline border | `#e6e4ee` | `#2b2f3c` | every border, always 1px |
+| Primary ink | `#1e2433` | `#f2f1f6` | dark slate · 15.5:1 on card surface |
+| Secondary ink | `#4c5468` | `#a8afc0` | 7.6:1 on card surface |
+| Muted ink (axis, meta, timestamps) | `#676f82` | `#7f8798` | 5.0:1 on surface, 4.7:1 on plane |
+| Tooltip plane / ink | `#1e2433` / `#f2f1f6` | inverted | 14.4:1 |
+
+The dark column is indicative until Day 5 actually builds it; only the light column is shipped.
+
+Muted ink was slate-400 (`#94a3b8`) through Day 4, which measured 2.6:1 on white — below AA for the
+12px meta text it is used on. The pastel pass darkened it to clear 4.5:1 on both surfaces.
 
 ### 2.2 Accents
 
-| Role | Hex | Tailwind | Used for — and nothing else |
-|---|---|---|---|
-| Primary action | `#4f46e5` | indigo-600 | Run button, active nav, focus ring, primary CTA |
-| Primary hover | `#4338ca` | indigo-700 | |
-| Brand success | `#059669` | emerald-600 | Restored banner, positive delta text |
-| Healing / attention | `#f59e0b` | amber-500 | The healing state, and **only** the healing state |
+Every accent hue exists twice: as a **pastel plane** — the wash you read as colour — and as a
+**readable ink** drawn on it. That split is the whole trick. A single mid-tone cannot be both a soft
+button fill and legible text, so neither job is asked of one value: the fill stays genuinely pastel
+and the label on it goes dark, rather than the fill darkening until white text survives (which is
+how a pastel turns back into indigo).
 
-Amber is reserved. The moment amber appears anywhere else in the product, the healing state stops
-reading as an event — and that state is the centerpiece of the demo (doc 04 Beat 5).
+| Role | Hex | Used for — and nothing else |
+|---|---|---|
+| Accent ink | `#6d5fd4` | link text, active nav, focus ring · 5.0:1 on surface |
+| Accent ink hover | `#5b4dc4` | |
+| Accent fill | `#ded9fa` | pastel lavender · the primary button's surface |
+| Accent fill hover | `#cec7f7` | |
+| Accent border | `#bfb6f3` | the primary button's 1px edge |
+| Accent label | `#443a94` | the label **on** accent fill · 6.8:1 |
+| Accent plane | `#f5f3fe` | active nav wash · accent ink reads 4.5:1 on it |
+| Brand success | `#348069` | pastel mint ink · restored, positive delta · 4.7:1 |
+| Success ink / plane | `#2c7159` / `#e6f7ef` | 5.2:1 |
+| Healing / attention | `#c6883a` | The healing state, and **only** the healing state |
+| Healing ink / plane | `#8d5a19` / `#fdf3e6` | 5.3:1 |
+
+The healing hue is reserved. The moment apricot appears anywhere else in the product, the healing
+state stops reading as an event — and that state is the centerpiece of the demo (doc 04 Beat 5). It
+was amber-500 (`#f59e0b`) through Day 4; the pastel pass darkened it so the healing **dot** clears
+3:1 as a graphical object, which amber-500 never did (2.1:1).
 
 ### 2.3 Geometry
 
 - **Radii:** `6px` controls · `8px` cards · `12px` modals · `9999px` badges. Nothing else.
 - **Spacing:** `4 · 8 · 12 · 16 · 24 · 32 · 48`. No other values.
 - **Borders:** `1px` always. Never 2px.
-- **Shadow:** exactly one — `0 4px 12px rgba(15,23,42,0.08)` — on floating layers only.
+- **Shadow:** none, anywhere. Every layer — card, drawer, tooltip, chart callout — is a solid fill
+  plus a 1px border. A tooltip separates itself from the plane by *inverting* (dark slate on pastel),
+  which is why no floating layer needs a blur to be legible. If you want a shadow, the layer needs a
+  different background.
 
 ### 2.4 Type
 
@@ -121,12 +145,12 @@ a sub-caption. Judges read the headline; the sub-caption proves there's a real m
 
 | Headline | Internal states | Dot | Text |
 |---|---|---|---|
-| `Idle` | IDLE, QUEUED | slate-400 | secondary ink |
-| `Scraping…` | RUNNING, VALIDATING, TRANSIENT_RETRY | indigo-600, pulsing | primary ink |
-| `⚠️ Layout Change Detected — Healing…` | BROKEN, DIAGNOSING, HEALING, AWAITING_APPROVAL, CANARY_VALIDATING, APPROVING, REJECTING | **amber-500**, pulsing | amber-700 on amber-50 |
-| `⚠️ Degraded — repair needs your approval` | DEGRADED, **PENDING_OPERATOR** | amber-500, **static** | amber-700 on amber-50, **+ `Repair` button** |
-| `✅ Pipeline Restored` | RESTORED, HEALTHY | emerald-600 | emerald-700 on emerald-50 |
-| `🛑 Needs your review` | QUARANTINED | `#d03b3b` | on rose-50 |
+| `Idle` | IDLE, QUEUED | muted ink | secondary ink |
+| `Scraping…` | RUNNING, VALIDATING, TRANSIENT_RETRY | accent ink, pulsing | primary ink |
+| `⚠️ Layout Change Detected — Healing…` | BROKEN, DIAGNOSING, HEALING, AWAITING_APPROVAL, CANARY_VALIDATING, APPROVING, REJECTING | **healing apricot**, pulsing | healing ink on healing plane |
+| `⚠️ Degraded — repair needs your approval` | DEGRADED, **PENDING_OPERATOR** | healing apricot, **static** | healing ink on healing plane, **+ `Repair` button** |
+| `✅ Pipeline Restored` | RESTORED, HEALTHY | pastel mint | success ink on success plane |
+| `🛑 Needs your review` | QUARANTINED | `#bb4459` | on the critical plane `#fdeef1` |
 
 Six labels, not four — two were added by architect decision 3 and the quarantine path.
 
@@ -180,13 +204,15 @@ dark   contrast: all ≥ 3:1 → PASS
 
 | Role | Hex | Use |
 |---|---|---|
-| good | `#0ca30c` | FHS ≥ 0.95 |
-| warning | `#fab219` | FHS 0.60–0.95 (degraded) |
-| critical | `#d03b3b` | FHS < 0.60 (broken) |
+| good | `#348069` | FHS ≥ 0.95 |
+| warning | `#c6883a` | FHS 0.60–0.95 (degraded) |
+| critical | `#bb4459` | FHS < 0.60 (broken) |
+| critical plane | `#fdeef1` | pastel rose wash behind critical text |
 
-These never appear as chart series, and a series color never carries status meaning. Note the
-collision risk: brand emerald `#059669` and status-good `#0ca30c` are the same hue family — **status
-always ships with an icon and a label**, so hue never carries the meaning alone.
+These never appear as chart series, and a series color never carries status meaning. Status-good and
+brand success are now deliberately the *same* value rather than two greens a shade apart — one mint,
+used for both, removes a distinction no reader was ever going to make. **Status always ships with an
+icon and a label**, so hue never carries the meaning alone.
 
 ### 5.3 The relief rule — non-negotiable in light mode
 
@@ -297,7 +323,7 @@ hardcoded autonomy rules in plain language:
 **Requirements:**
 - **Read-only. No toggle, no switch, no affordance implying it can be changed.** Text and dots only —
   a disabled-looking control invites a click and then disappoints; a statement doesn't.
-- Dots use the §5.2 **status** colors (critical `#d03b3b`, warning `#fab219`), not series colors, and
+- Dots use the §5.2 **status** colors (critical `#bb4459`, warning `#c6883a`), not series colors, and
   each carries its text label — status never rides on hue alone.
 - Values (`Automatic`, `Ask me`) in primary ink at 600 weight; thresholds in muted ink.
 - Thresholds are read from the same constant as the engine, never retyped. If the numbers in

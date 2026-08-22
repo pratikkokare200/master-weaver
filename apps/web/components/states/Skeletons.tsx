@@ -88,7 +88,7 @@ export function TableSkeleton({
  */
 export function ChartSkeleton({ height = 280 }: { height?: number }) {
   return (
-    <div role="status" aria-label="Loading chart" className="w-full px-4 py-4">
+    <div role="status" aria-label="Loading chart" className="w-full px-6 py-6">
       <div className="flex gap-3" style={{ height }}>
         {/* y-axis tick gutter */}
         <div className="flex w-10 flex-col justify-between py-1">
@@ -136,7 +136,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div role="status" aria-label="Loading" className="divide-y divide-hairline">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="flex items-start gap-3 px-4 py-4">
+        <div key={index} className="flex items-start gap-3 px-6 py-4">
           <SkeletonBar width={8} height={8} className="mt-1 shrink-0 rounded-badge" />
           <div className="flex-1 space-y-2">
             <SkeletonBar width="42%" height={8} />
@@ -153,7 +153,7 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
 export function CodeSkeleton({ lines = 12 }: { lines?: number }) {
   const widths = ['38%', '64%', '52%', '71%', '45%', '60%', '33%', '68%', '55%', '41%', '62%', '30%'];
   return (
-    <div role="status" aria-label="Loading JSON" className="space-y-2 px-4 py-4">
+    <div role="status" aria-label="Loading JSON" className="space-y-2 px-6 py-6">
       {Array.from({ length: lines }).map((_, index) => (
         <SkeletonBar key={index} width={widths[index % widths.length]} height={8} />
       ))}

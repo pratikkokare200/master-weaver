@@ -74,7 +74,7 @@ export default async function CollectorPage({ params, searchParams }: PageProps)
   const awaitingOperator = live?.awaitingOperator ?? false;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <CommandBar defaultUrl={collector.targetUrl} />
 
       <CollectorHeader collector={collector} failedFields={live?.failedFields ?? []} />

@@ -94,7 +94,7 @@ function EpisodeRow({ episode }: { episode: LedgerEpisode }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-plane"
+        className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-6 py-4 text-left transition-colors hover:bg-plane"
       >
         <span className="text-meta tabular-nums text-ink-muted" title={formatRelativeTime(episode.triggeredAt)}>
           {formatClock(episode.triggeredAt)}
@@ -125,7 +125,7 @@ function EpisodeRow({ episode }: { episode: LedgerEpisode }) {
       </button>
 
       {open ? (
-        <ul className="space-y-3 px-4 pb-4">
+        <ul className="space-y-4 px-6 pb-6">
           {episode.attempts.map((attempt) => (
             <AttemptRow key={attempt.attemptNo} attempt={attempt} />
           ))}

@@ -1,6 +1,7 @@
 'use client';
 
 import { HealthBadge } from '@/components/collector/HealthBadge';
+import { HintLabel } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 import type { LiveStatus } from '@/lib/queries.server';
 import { useLiveStatus } from '@/lib/useLiveStatus';
@@ -21,6 +22,16 @@ import { useLiveStatus } from '@/lib/useLiveStatus';
  * client-side guess at what should come next — a badge that predicts the next state will eventually
  * predict a repair that failed.
  */
+
+/**
+ * Four decimal places is not false precision here: the scorer's own thresholds are 0.95 and 0.60,
+ * and a collector sitting at 0.9499 is on the other side of a decision from one at 0.9501. The
+ * tooltip says which decision, because the number alone does not.
+ */
+const HEALTH_TOOLTIP =
+  'Field health on the most recent run: the share of contracted fields that came back usable, ' +
+  'weighted by importance. At or above 0.95 this collector is healthy, below 0.60 it repairs ' +
+  'itself, and in between it stops and asks you first.';
 
 export interface LiveHealthProps {
   collectorId: string;
@@ -47,14 +58,25 @@ export function LiveHealth({ collectorId, initial }: LiveHealthProps) {
   return (
     <section
       aria-label="Live collector health"
-      className="flex flex-col gap-2 rounded-card border border-hairline bg-surface p-3"
+      className="flex flex-col gap-3 rounded-card border border-hairline bg-surface p-6"
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
         <HealthBadge state={current.runState} collectorId={collectorId} />
 
         <dl className="flex flex-wrap items-center gap-x-6 gap-y-1">
           <div>
-            <dt className="text-meta text-ink-muted">Health</dt>
+            <dt>
+              <HintLabel
+                id="live-health-tip"
+                tip={HEALTH_TOOLTIP}
+                side="bottom"
+                align="start"
+                width="wide"
+                className="text-meta text-ink-muted"
+              >
+                Health
+              </HintLabel>
+            </dt>
             <dd className="text-stat tabular-nums text-ink">
               {current.fhs === null ? '—' : current.fhs.toFixed(4)}
             </dd>

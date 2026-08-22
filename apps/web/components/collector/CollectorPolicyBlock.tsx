@@ -1,6 +1,6 @@
 import { FHS_THRESHOLDS } from '@weaver/contracts';
 
-import { InfoIcon } from '@/components/icons';
+import { HintLabel, InfoTip } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
 import { formatGoldenSet, formatPercent, formatPercentRange } from '@/lib/format';
 import type { GoldenSetInfo } from '@/lib/seed';
@@ -18,7 +18,20 @@ import type { GoldenSetInfo } from '@/lib/seed';
  * Thresholds come from `FHS_THRESHOLDS` in `@weaver/contracts`, the same constant the engine
  * branches on. They are never retyped here: a policy card that drifts from actual behaviour is
  * worse than no card.
+ *
+ * "Catastrophic" and "Partial" are the two words this card rests on, and neither one explains
+ * itself — a reader can see that one repairs automatically and the other asks, without ever
+ * learning why the machine trusts itself in the first case and not the second. Each carries a
+ * tooltip that says so.
  */
+
+const CATASTROPHIC_TOOLTIP =
+  'Almost nothing came back — the page structure changed underneath the collector. There is no ' +
+  'partly-working version left to protect, so the repair runs on its own and tells you afterwards.';
+
+const PARTIAL_TOOLTIP =
+  'Some fields still returned and some did not. A repair here could as easily make things worse ' +
+  'as better, so the collector stops and asks before spending anything.';
 
 const WEAK_GOLDEN_SET_TOOLTIP =
   'Repairs are verified against one reference page. Add more URLs to strengthen verification.';
@@ -32,9 +45,13 @@ interface PolicyRowProps {
   severity: string;
   threshold: string;
   behaviour: string;
+  /** What this severity band actually means, and why it earns the behaviour beside it. */
+  tip: string;
+  tipId: string;
+  tipSide: 'top' | 'bottom';
 }
 
-function PolicyRow({ dotColor, severity, threshold, behaviour }: PolicyRowProps) {
+function PolicyRow({ dotColor, severity, threshold, behaviour, tip, tipId, tipSide }: PolicyRowProps) {
   return (
     <div className="grid grid-cols-[8px_1fr_auto] items-center gap-x-3">
       {/* The dot never carries the meaning alone — it always sits beside its text label (§5.2). */}
@@ -44,41 +61,13 @@ function PolicyRow({ dotColor, severity, threshold, behaviour }: PolicyRowProps)
         aria-hidden="true"
       />
       <span className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-cell text-ink">{severity}</span>
+        <HintLabel id={tipId} tip={tip} side={tipSide} align="start" className="text-cell text-ink">
+          {severity}
+        </HintLabel>
         <span className="text-cell text-ink-muted">{threshold}</span>
       </span>
       <span className="text-cell font-semibold text-ink">{behaviour}</span>
     </div>
-  );
-}
-
-/** Informational only — focusable so the tooltip is reachable by keyboard, but not an action. */
-function InfoTip({ label, muted }: { label: string; muted: boolean }) {
-  return (
-    <span className="group relative inline-flex">
-      <span
-        tabIndex={0}
-        role="note"
-        aria-label={label}
-        className={cn(
-          'inline-flex h-4 w-4 items-center justify-center rounded-badge',
-          muted ? 'text-ink-muted' : 'text-ink-secondary',
-        )}
-      >
-        <InfoIcon size={14} />
-      </span>
-      <span
-        role="tooltip"
-        className={cn(
-          'pointer-events-none absolute bottom-full right-0 z-10 mb-2 w-56 rounded-control',
-          'border border-hairline bg-raised px-3 py-2 text-meta text-ink-secondary',
-          'opacity-0 shadow-floating transition-opacity duration-200',
-          'group-hover:opacity-100 group-focus-within:opacity-100',
-        )}
-      >
-        {label}
-      </span>
-    </span>
   );
 }
 
@@ -97,15 +86,18 @@ export function CollectorPolicyBlock({ goldenSet, className }: CollectorPolicyBl
       aria-label="Repair policy"
       className={cn('rounded-card border border-hairline bg-surface', className)}
     >
-      <div className="px-4 pt-3 pb-4">
+      <div className="px-6 py-5">
         <h3 className="text-meta font-medium text-ink-muted">Repair policy</h3>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-4 space-y-3">
           <PolicyRow
             dotColor="var(--status-critical)"
             severity="Catastrophic"
             threshold={`health < ${formatPercent(FHS_THRESHOLDS.DEGRADED)}`}
             behaviour="Automatic"
+            tip={CATASTROPHIC_TOOLTIP}
+            tipId="policy-tip-catastrophic"
+            tipSide="top"
           />
           <PolicyRow
             dotColor="var(--status-warning)"
@@ -115,19 +107,28 @@ export function CollectorPolicyBlock({ goldenSet, className }: CollectorPolicyBl
               FHS_THRESHOLDS.HEALTHY,
             )}`}
             behaviour="Ask me"
+            tip={PARTIAL_TOOLTIP}
+            tipId="policy-tip-partial"
+            tipSide="bottom"
           />
         </div>
 
-        <p className="mt-3 text-meta text-ink-muted">
+        <p className="mt-4 text-meta text-ink-muted">
           Repairs are always verified before they commit, on both paths.
         </p>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-hairline px-4 py-2">
+      <div className="flex items-center justify-between gap-3 border-t border-hairline px-6 py-3">
         <span className={cn('text-meta', isWeak ? 'text-ink-muted' : 'text-ink-secondary')}>
           {formatGoldenSet(goldenSet.count, goldenSet.shape)}
         </span>
-        <InfoTip label={isWeak ? WEAK_GOLDEN_SET_TOOLTIP : GOLDEN_SET_TOOLTIP} muted={isWeak} />
+        <InfoTip
+          id="policy-tip-golden-set"
+          label={isWeak ? WEAK_GOLDEN_SET_TOOLTIP : GOLDEN_SET_TOOLTIP}
+          muted={isWeak}
+          side="top"
+          align="end"
+        />
       </div>
     </section>
   );

@@ -33,12 +33,12 @@ import type { PanelState } from '@/lib/panelState';
  *     relief, and it also removes the legend's colour-matching step entirely.
  *   - **Horizontal gridlines only** (§5.5). Vertical rules imply the x-samples are evenly spaced.
  *     They are not — a repair produces several runs a minute apart inside a 15-minute cadence.
- *   - **Status colours are never a series** (§5.2). Green/amber/red mean a health band; a line that
+ *   - **Status colours are never a series** (§5.2). Mint/apricot/rose mean a health band; a line that
  *     borrows them competes with the badge for the same meaning. The lines are accent-coloured, and
  *     the health thresholds appear as reference lines, which is what those colours are for.
  *
- * The amber episode markers are the one exception, and they are on-message rather than in tension
- * with it: amber is reserved for the healing state, and that is precisely what they mark.
+ * The apricot episode markers are the one exception, and they are on-message rather than in tension
+ * with it: apricot is reserved for the healing state, and that is precisely what they mark.
  */
 
 const AXIS = 'var(--ink-muted)';
@@ -73,7 +73,8 @@ function money(value: number): string {
  * Shared tooltip.
  *
  * Recharts' default renders a white box with no border, which disappears against `--surface`. This
- * one uses the raised token and a hairline, matching every other floating surface in the app.
+ * one inverts to the tooltip tokens instead — dark slate, 1px border, no shadow — so the chart's
+ * callout and the app's tooltips are visibly the same object.
  */
 function ChartTooltip({
   active,
@@ -92,9 +93,11 @@ function ChartTooltip({
   if (!Number.isFinite(value)) return null;
 
   return (
-    <div className="rounded-control border border-hairline bg-raised px-2 py-1 shadow-sm">
-      <p className="text-meta text-ink-muted">{typeof label === 'string' ? hhmm(label) : label}</p>
-      <p className="text-cell tabular-nums text-ink">{format(value)}</p>
+    <div className="rounded-control border border-tooltip-plane bg-tooltip-plane px-3 py-2">
+      <p className="text-meta text-tooltip-ink opacity-70">
+        {typeof label === 'string' ? hhmm(label) : label}
+      </p>
+      <p className="text-cell tabular-nums text-tooltip-ink">{format(value)}</p>
     </div>
   );
 }
@@ -118,7 +121,7 @@ function Stack({
   const marks = episodeMarks.filter((mark) => plotted.has(mark.t));
 
   return (
-    <div className="flex flex-col gap-5 px-4 py-4">
+    <div className="flex flex-col gap-8 px-6 py-6">
       <section aria-label="Median product price">
         <div className="flex items-baseline justify-between">
           <h3 className="text-meta uppercase tracking-wide text-ink-muted">Median price</h3>
@@ -232,7 +235,7 @@ function Stack({
                 isAnimationActive={false}
               />
 
-              {/* Healing episodes. Amber is reserved for exactly this. */}
+              {/* Healing episodes. Apricot is reserved for exactly this. */}
               {marks.map((mark) => (
                 <ReferenceLine
                   key={mark.t}

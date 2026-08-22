@@ -4,7 +4,19 @@
    Master Weaver — design tokens. Doc 05 §2.
 
    The governing rule is restraint: one accent used sparingly, hairline borders instead of
-   shadows, one spacing scale. No gradients, no glassmorphism, no animated backgrounds.
+   shadows, one spacing scale. No gradients, no glassmorphism, no animated backgrounds, and
+   as of the pastel pass, no shadows at all — a floating layer is separated from the plane by
+   a solid fill and a 1px border, never by a blur.
+
+   The palette is pastel by construction rather than by tint: every hue exists as a *pastel
+   plane* (the wash you read as colour) and a *readable ink* (the text or mark drawn on it).
+   That split is what lets the surface look soft while every label still clears WCAG AA — a
+   single mid-tone lavender cannot be both a pretty button fill and legible text, so it isn't
+   asked to be.
+
+   Every value below was checked with a contrast script before it landed. The ratios in the
+   comments are measured, not aspirational; if you change a value, re-measure the pair it is
+   named against.
 
    Tokens are declared as plain custom properties on :root and referenced through `@theme inline`,
    so the Day 5 dark mode (doc 05 §7) is a token swap — redefine these values under a `.dark`
@@ -13,34 +25,55 @@
 
 :root {
   /* --- Surfaces & ink — §2.1 (light column) ------------------------------------------- */
-  --plane: #f8fafc; /* slate-50  · page plane */
+  --plane: #f7f6f9; /* soft off-white · page plane, a breath of lavender in the grey */
   --surface: #ffffff; /* white     · card surface */
-  --raised: #ffffff; /* white     · dropdown, tooltip */
-  --hairline: #e2e8f0; /* slate-200 · every border, always 1px */
-  --ink: #0f172a; /* slate-900 · primary ink */
-  --ink-secondary: #475569; /* slate-600 · secondary ink */
-  --ink-muted: #94a3b8; /* slate-400 · axis, meta, timestamps */
+  --raised: #ffffff; /* white     · dropdown menus */
+  --hairline: #e6e4ee; /* every border, always 1px */
+  --ink: #1e2433; /* dark slate · primary ink   · 15.5:1 on surface */
+  --ink-secondary: #4c5468; /* secondary ink              ·  7.6:1 on surface */
+  --ink-muted: #676f82; /* axis, meta, timestamps     ·  5.0:1 on surface, 4.7:1 on plane */
 
-  /* --- Accents — §2.2 ------------------------------------------------------------------ */
-  --accent: #4f46e5; /* indigo-600 · primary action, active nav, focus ring */
-  --accent-hover: #4338ca; /* indigo-700 */
-  --accent-plane: #eef2ff; /* indigo-50  · active nav wash */
-  --success: #059669; /* emerald-600 · restored, positive delta */
-  --success-ink: #047857; /* emerald-700 · text on success-plane */
-  --success-plane: #ecfdf5; /* emerald-50 */
+  /* --- Accents — §2.2 ------------------------------------------------------------------
+     Pastel lavender. `--accent` is the *ink* form: link text, active nav, focus ring — it has
+     to be readable, so it is the deepest of the family. `--accent-fill` is the pastel form: the
+     primary button's surface, which carries `--accent-ink` rather than white. A white label on
+     a genuinely pastel fill is unreadable at any weight, and darkening the fill until white
+     works turns the pastel back into indigo. */
+  --accent: #6d5fd4; /* lavender ink   · 5.0:1 on surface, 4.6:1 on plane */
+  --accent-hover: #5b4dc4;
+  --accent-fill: #ded9fa; /* pastel lavender · primary button surface */
+  --accent-fill-hover: #cec7f7;
+  --accent-border: #bfb6f3; /* 1px edge that keeps the button a shape, not a smudge */
+  --accent-ink: #443a94; /* label on --accent-fill · 6.8:1 */
+  --accent-plane: #f5f3fe; /* active nav wash        · accent reads 4.5:1 on it */
 
-  /* Amber is RESERVED for the healing / attention state and nothing else (§2.2). The moment it
+  /* Pastel mint replaces the emerald success family. Same split: a wash to read, an ink to
+     write on it. */
+  --success: #348069; /* mint ink   · 4.7:1 on surface */
+  --success-ink: #2c7159; /* on success-plane · 5.2:1 */
+  --success-plane: #e6f7ef; /* pastel mint wash */
+
+  /* Apricot is RESERVED for the healing / attention state and nothing else (§2.2). The moment it
      appears elsewhere the healing state stops reading as an event — and that state is the
-     centerpiece of the demo. */
-  --healing: #f59e0b; /* amber-500 */
-  --healing-ink: #b45309; /* amber-700 · text on healing-plane */
-  --healing-plane: #fffbeb; /* amber-50 */
+     centerpiece of the demo. Softened from amber-500 to sit with the pastels, and darkened far
+     enough that the dot clears 3:1 as a graphical object — the old amber-500 managed 2.1:1. */
+  --healing: #c6883a;
+  --healing-ink: #8d5a19; /* on healing-plane · 5.3:1 */
+  --healing-plane: #fdf3e6; /* pastel apricot wash */
 
   /* --- Status colors — §5.2. Reserved; never a chart series. --------------------------- */
-  --status-good: #0ca30c; /* FHS ≥ 0.95 */
-  --status-warning: #fab219; /* FHS 0.60–0.95 */
-  --status-critical: #d03b3b; /* FHS < 0.60 */
-  --status-critical-plane: #fff1f2; /* rose-50 */
+  --status-good: #348069; /* FHS ≥ 0.95 — the same mint as success */
+  --status-warning: #c6883a; /* FHS 0.60–0.95 */
+  --status-critical: #bb4459; /* FHS < 0.60 · 5.1:1 on surface, 4.6:1 on its own plane */
+  --status-critical-plane: #fdeef1; /* pastel rose wash */
+
+  /* --- Floating layers ----------------------------------------------------------------
+     Tooltips invert instead of casting a shadow. On a page this light, a white bubble with a
+     hairline is invisible without a drop shadow — and the shadow is exactly what this pass
+     removes. Dark slate on pastel separates the layer with contrast, which is cheaper to render
+     and reads more crisply than a blur. */
+  --tooltip-plane: #1e2433;
+  --tooltip-ink: #f2f1f6; /* 14.4:1 on tooltip-plane */
 }
 
 @theme inline {
@@ -56,6 +89,10 @@
   /* Accents */
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-hover: var(--accent-fill-hover);
+  --color-accent-border: var(--accent-border);
+  --color-accent-ink: var(--accent-ink);
   --color-accent-plane: var(--accent-plane);
   --color-success: var(--success);
   --color-success-ink: var(--success-ink);
@@ -70,14 +107,19 @@
   --color-status-critical: var(--status-critical);
   --color-status-critical-plane: var(--status-critical-plane);
 
+  /* Floating layers */
+  --color-tooltip-plane: var(--tooltip-plane);
+  --color-tooltip-ink: var(--tooltip-ink);
+
   /* --- Geometry — §2.3. Radii: 6 controls · 8 cards · 12 modals · 9999 badges. Nothing else. */
   --radius-control: 6px;
   --radius-card: 8px;
   --radius-modal: 12px;
   --radius-badge: 9999px;
 
-  /* Exactly one shadow, on genuinely floating layers only (§2.3). */
-  --shadow-floating: 0 4px 12px rgb(15 23 42 / 0.08);
+  /* There is deliberately no shadow token. Every layer — card, drawer, tooltip, chart
+     callout — is a solid fill plus a 1px border. If you find yourself wanting a shadow, the
+     layer needs a different background, not a blur. */
 
   /* --- Type — §2.4. No display face, no serif, no webfont: a webfont is a network request
      that can fail in a screen recording. ------------------------------------------------ */
@@ -96,6 +138,10 @@
    Spacing: 4 · 8 · 12 · 16 · 24 · 32 · 48 only (§2.3). Tailwind's 4px base gives exactly these
    as 1 · 2 · 3 · 4 · 6 · 8 · 12. Do not reach for 5, 7, 9, 10, 11 or arbitrary values — the
    consistent vertical rhythm is most of why this reads as finished.
+
+   The pastel pass moved the *default* card padding from 16px to 24px. With shadows gone, white
+   space is the only thing separating one card's content from the next card's edge, so it has to
+   do more work than it did.
    ------------------------------------------------------------------------------------------ */
 
 @layer base {
@@ -120,7 +166,7 @@
     border-color: var(--hairline);
   }
 
-  /* Focus ring on every interactive element — indigo-600, 2px offset (§8). */
+  /* Focus ring on every interactive element — lavender, 2px offset (§8). */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -143,6 +189,36 @@
   /* Badge state transitions cross-fade over 200ms. No slide, no bounce (§4). */
   .badge-crossfade {
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+
+  /* ----------------------------------------------------------------------------------------
+     Tooltips.
+
+     CSS-only, so they work inside server components — no state, no portal, no positioning
+     library. The trigger is the `group`; the bubble reveals on `:hover` and on `:focus-within`,
+     which is what makes it reachable from the keyboard.
+
+     `visibility` rather than `display` so the 120ms fade has something to animate, and so the
+     hidden bubble leaves the accessibility tree instead of being read out on every element it
+     is attached to. Triggers carry their own `aria-label`/`aria-describedby`, so the bubble
+     itself is `aria-hidden` and the text is never announced twice.
+
+     Keyboard reveal is `:focus-visible`, never plain `:focus-within`. A tab is focused by
+     clicking it, and `:focus-within` would leave that tab's bubble pinned open over the panel
+     the click just opened. `:has(:focus-visible)` covers the wrapped case, where the group is a
+     span and the thing actually taking focus is the trigger inside it.
+     ---------------------------------------------------------------------------------------- */
+  .tooltip-bubble {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 120ms ease, visibility 120ms;
+  }
+
+  .group:hover > .tooltip-bubble,
+  .group:focus-visible > .tooltip-bubble,
+  .group:has(:focus-visible) > .tooltip-bubble {
+    visibility: visible;
+    opacity: 1;
   }
 }
 
@@ -172,7 +248,9 @@
   animation: weaver-skeleton 1.6s ease-in-out infinite;
 }
 
-/* prefers-reduced-motion: drop the pulse, keep the color (§4). */
+/* prefers-reduced-motion: drop the pulse, keep the color (§4). Tooltips still appear — they
+   simply stop fading, because a tooltip that never arrives is a broken affordance, not a calm
+   one. */
 @media (prefers-reduced-motion: reduce) {
   .dot-pulse,
   .skeleton {

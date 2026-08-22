@@ -51,8 +51,8 @@ export function JsonPanel({ state, rows }: { state: PanelState; rows: ProductRow
   }
 
   return (
-    <div className="p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="p-6">
+      <div className="mb-4 flex items-center justify-between">
         <p className="text-meta text-ink-muted">{rows.length} rows · raw run output</p>
         <Button variant="secondary" onClick={handleCopy} className="text-cell">
           {copied ? 'Copied' : 'Copy'}

@@ -19,8 +19,9 @@ export interface ErrorStateProps {
  * The icon is not decorative: status never rides on hue alone (§5.2), so the critical color always
  * ships alongside an icon and a text label.
  *
- * Note this uses the critical status color, never amber. Amber belongs to the healing state and
- * nothing else — an amber error would make the healing badge stop reading as an event.
+ * Note this uses the critical status color, never the healing apricot. Apricot belongs to the
+ * healing state and nothing else — an apricot error would make the healing badge stop reading as an
+ * event.
  */
 export function ErrorState({ title, description, detail, onRetry, className }: ErrorStateProps) {
   return (

@@ -41,7 +41,10 @@ export function AppShell({
             className="absolute inset-0 bg-ink/20"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-60 border-r border-hairline bg-plane shadow-floating">
+          {/* Solid plane and a 1px right edge — no shadow. The scrim behind it is what
+              separates the drawer from the page; a drop shadow on top of a scrim is belt and
+              braces, and it is the exact effect this design is stripping out. */}
+          <div className="absolute inset-y-0 left-0 w-60 border-r border-hairline bg-plane">
             <SidebarContent
               collectors={collectors}
               workspaces={workspaces}
@@ -66,7 +69,7 @@ export function AppShell({
           <span className="text-body font-semibold text-ink">Master Weaver</span>
         </div>
 
-        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-4 md:px-6 md:py-6">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8 md:py-8">
           {children}
         </main>
       </div>
