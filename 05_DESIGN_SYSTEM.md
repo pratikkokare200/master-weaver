@@ -22,7 +22,7 @@ adding, not by omitting.
 
 Three commitments that produce the look on their own:
 
-1. **One accent, used sparingly.** Indigo for primary action. If everything is indigo, nothing is.
+1. **One accent, used sparingly.** Charcoal for primary action. If everything is accented, nothing is.
 2. **Hairline borders over shadows.** Slate-200 dividers. Shadows only on genuinely floating layers
    (dropdown, modal, tooltip).
 3. **Consistent vertical rhythm.** One spacing scale, no ad-hoc pixel values. This is 80% of why
@@ -43,7 +43,7 @@ shared component library.
 
 | Role | Light | Dark | Note |
 |---|---|---|---|
-| Page plane | `#f6f8fa` | `#14171d` | soft off-white, cooled a shade toward the accent |
+| Page plane | `#f6f8fa` | `#14171d` | soft off-white, a hair cool so the charcoal reads as slate |
 | Card surface | `#ffffff` | `#1b1f27` | |
 | Raised surface (dropdown) | `#ffffff` | `#232833` | |
 | Hairline border | `#e3e7ec` | `#2b303c` | every border, always 1px |
@@ -60,28 +60,50 @@ Muted ink was slate-400 (`#94a3b8`) through Day 4, which measured 2.6:1 on white
 
 ### 2.2 Accents
 
-Every accent hue exists twice: as a **pastel plane** — the wash you read as colour — and as a
+Every **status** hue exists twice: as a **pastel plane** — the wash you read as colour — and as a
 **readable ink** drawn on it. That split is the whole trick. A single mid-tone cannot be both a soft
-button fill and legible text, so neither job is asked of one value: the fill stays genuinely pastel
-and the label on it goes dark, rather than the fill darkening until white text survives (which is
-how a pastel turns back into a saturated mid-blue).
+fill and legible text, so neither job is asked of one value: the fill stays genuinely pastel and the
+label on it goes dark, rather than the fill darkening until white text survives (which is how a
+pastel turns back into a saturated mid-tone).
 
-**The accent is cerulean because the other hues are spoken for.** Status owns mint at 162°, apricot
-at 33° and rose at 349°. An accent near any of them makes "primary action" and "system state" the
-same signal, which is the one confusion this palette exists to prevent — a peach primary button sits
-11° from the healing apricot and would kill the healing state as an event. Cerulean at 208° is 46°
-clear of the nearest reserved hue and far from the other two. This is the open space on the wheel,
-not a preference.
+**The accent is charcoal because it is the only value that cannot collide.** Status owns mint at
+162°, apricot at 33° and rose at 349°. Any accent near one of them makes "primary action" and
+"system state" the same signal, which is the one confusion this palette exists to prevent — a peach
+primary button sits 11° from the healing apricot and would kill the healing state as an event.
+
+Cerulean at 208° was the widest gap on the wheel and it held that argument for four days, but the
+gap was the *only* thing recommending it: at 60% saturation it read as the default blue of every
+dashboard shipped since 2015, which is the opposite of what a premium surface wants. The two hues
+usually reached for instead are worse than cerulean, not better — **terracotta at ~20° is 13° from
+the healing apricot** and **clay runs into rose at 349°**; both re-open the exact collision the
+reserved-hue rule closes.
+
+A neutral ends the argument. Charcoal has no hue to collide with, so hue is left to mean status and
+nothing else, and the accent asserts itself through weight and contrast instead. Chroma is held at
+**10% saturation** — below roughly 15% the eye stops naming a hue and reads "graphite", and a slate
+blue at 30% is still a blue.
+
+The accent is also the one member of the palette with **no pastel/ink split**: the primary button is
+a solid charcoal fill carrying a white label. The split exists to protect legibility on saturated
+mid-tones, and charcoal has no such problem — white sits on it at 11.6:1, where the deepest label
+the old pastel cerulean fill could carry managed 7.0:1. Going solid buys contrast rather than
+spending it, which matters more in a system with no shadows to fall back on.
 
 | Role | Hex | Used for — and nothing else |
 |---|---|---|
-| Accent ink | `#25679f` | link text, active nav, focus ring, logo mark · 6.0:1 on surface |
-| Accent ink hover | `#1d5788` | |
-| Accent fill | `#d3e6f5` | pastel cerulean · the primary button's surface |
-| Accent fill hover | `#c0dcf1` | |
-| Accent border | `#a5cbe6` | the primary button's 1px edge |
-| Accent label | `#1b4c76` | the label **on** accent fill · 7.0:1 |
-| Accent plane | `#eef5fb` | active nav wash · accent ink reads 5.4:1 on it |
+| Accent ink | `#37393d` | link text, active nav, focus ring, logo mark, chart series · 11.6:1 on surface |
+| Accent ink hover | `#24262a` | 15.2:1 on surface |
+| Accent fill | `#37393d` | the primary button's surface · **solid**, not a wash |
+| Accent fill hover | `#24262a` | |
+| Accent border | `#2c2e32` | the primary button's 1px edge — a shade **deeper** than the fill |
+| Accent label | `#ffffff` | the label **on** accent fill · 11.6:1 |
+| Accent plane | `#dfe3e8` | active nav wash, tour chip · accent ink reads 9.0:1 on it |
+| Accent plane strong | `#d2d7de` | the tour chip's pulse peak only · accent ink 8.0:1 |
+| Accent plane border | `#c4cbd4` | the tour chip's edge · 1.54:1 on plane |
+
+A neutral wash cannot separate itself from a neutral plane by hue, so the active-nav and tour-chip
+washes separate by **lightness** instead — `#dfe3e8` is a full step darker than the page plane
+(1.21:1) where the old cerulean wash was nearly flat against it (1.12:1) and relied on hue to read.
 | Brand success | `#317b64` | pastel mint ink · restored, positive delta · 5.1:1 |
 | Success ink / plane | `#2c7159` / `#e6f7ef` | 5.2:1 |
 | Healing / attention | `#c6883a` | The healing state, and **only** the healing state |
@@ -129,8 +151,9 @@ meter) use default proportional figures.
 │  Sidebar   ├──────────────────────────────────────────────┤
 │  240px     │  Collector header · HealthBadge · CreditMeter │
 │            ├──────────────────────────────────────────────┤
-│ Workspaces │  [ Table | Chart | JSON | Chat | Ledger ]     │
-│ Collectors ├──────────────────────────────────────────────┤
+│ Take a tour│  [ Table | Chart | JSON | Chat | Ledger ]     │
+│ Workspaces ├──────────────────────────────────────────────┤
+│ Collectors │                                              │
 │            │                                              │
 │            │  Active panel                                │
 │            │                                              │
@@ -140,6 +163,10 @@ meter) use default proportional figures.
 Sidebar `240px` fixed, page plane background, hairline right border. Content max-width `1440px`,
 centered. Below `768px` the sidebar collapses to a drawer — responsive matters only because a judge
 may open the live URL on a tablet, not because mobile is a use case.
+
+**The tour launcher is the first item in the rail**, above the workspace list — see ProductTour in
+§6. It was previously the last item in the footer, in the same muted grey as the inert labels around
+it, and in practice nobody found it.
 
 **Tabs, not resizable panels.** Your original spec called for resizable panels; they cost half a day,
 they're fiddly to record, and they add nothing to "finished and readable." Cut.
@@ -359,9 +386,31 @@ exist. Ten minutes of Flash's time; see ADR-005 for why the toggle itself was de
 ### ProductTour
 
 Four stops — the command bar, the collector summary, the tab strip, the Chat tab — triggered by
-**Take a tour** in the sidebar footer. Steps bind to the DOM through `data-tour` attributes, so a
-restyle cannot silently break the tour, and a step whose target is missing is dropped before the
-tour starts rather than presenting an empty frame.
+**Take a tour** at the top of the sidebar nav. Steps bind to the DOM through `data-tour` attributes,
+so a restyle cannot silently break the tour, and a step whose target is missing is dropped before
+the tour starts rather than presenting an empty frame.
+
+**The launcher.** A chip carrying accent ink on the accent plane, with a visible border and a §4
+dot: the only filled, bordered element in a rail that is otherwise plain text, which is what makes
+it findable without making it loud. It is deliberately **not** the solid `primary` treatment — §1
+allows one primary on screen and the Run button is it, so a second charcoal block would make "what
+do I do here" ambiguous. It appears only on collector routes, since every stop targets one.
+
+The chip **pulses on arrival and then stops**: background and border cycle to `--accent-plane-strong`
+and `--accent` over 1.8s, four times, and it settles into an ordinary button. Three constraints
+make that legitimate rather than a blinking control:
+
+- **It ends.** Four iterations, ~7s, and it is over. A cue with no end state never stops asking and
+  so stops being asked about — see §9.
+- **It never animates the label.** Background and border only. §4's dot rule exists because pulsing
+  text is unreadable, and it applies here for the same reason.
+- **Interaction cancels it,** on hover or focus, and `AppShell` drops the class outright once the
+  tour has been opened — so it never replays for someone who has already taken it. That flag is
+  session state, not `localStorage`: the cue exists for a first-time viewer, and a flag persisted
+  during a rehearsal is exactly how it would fail to appear on the take that counts.
+
+Under `prefers-reduced-motion` the pulse is dropped and the chip keeps its resting fill and border,
+which is what carries the "find me" job for anyone who never sees the animation.
 
 Built rather than installed. driver.js and react-joyride each ship a visual language — rounded
 popovers, drop shadows, a glow around the cutout — and matching this system would have meant
@@ -405,7 +454,7 @@ This is what the Suit-Up criterion actually measures. Every panel needs all four
 - [ ] **Error** — what failed, in plain language, plus a retry
 - [ ] **Populated**
 
-Plus globally: focus rings on every interactive element (indigo-600, 2px offset) · 44px minimum touch
+Plus globally: focus rings on every interactive element (accent charcoal, 2px offset) · 44px minimum touch
 targets · `prefers-reduced-motion` honoured · no console errors or warnings on any route · no layout
 shift on any state transition.
 
@@ -424,6 +473,8 @@ because they will click "new workspace."
 | Recoloring series when a filter changes the count | Color follows the entity, never its rank |
 | Amber anywhere but the healing state | Destroys the demo's key signal |
 | Gradients, glassmorphism, animated backgrounds | Reads as unfinished, not impressive |
+| An attention cue that never ends | The tour chip's pulse is bounded to four iterations and dies on interaction. A control that blinks forever stops reading as a cue and starts reading as a defect — and it is the one thing that turns "animated background" from a ban into an accusation |
+| A chromatic accent that lands near a reserved status hue | §2.2. Terracotta is 13° from the healing apricot, clay runs into rose. The accent is a neutral so this argument never has to be had |
 | Centered spinners | Skeletons preserve layout; spinners cause shift |
 | Blank cells for nulls | Use `—`; a blank reads as a bug |
 | A number label on every data point | Selective direct labels only |

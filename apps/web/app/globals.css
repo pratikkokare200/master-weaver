@@ -8,16 +8,19 @@
    as of the pastel pass, no shadows at all — a floating layer is separated from the plane by
    a solid fill and a 1px border, never by a blur.
 
-   The palette is pastel by construction rather than by tint: every hue exists as a *pastel
-   plane* (the wash you read as colour) and a *readable ink* (the text or mark drawn on it).
-   That split is what lets the surface look soft while every label still clears WCAG AA — a
-   single mid-tone cerulean cannot be both a pretty button fill and legible text, so it isn't
-   asked to be.
+   The status palette is pastel by construction rather than by tint: every status hue exists as a
+   *pastel plane* (the wash you read as colour) and a *readable ink* (the text or mark drawn on
+   it). That split is what lets the surface look soft while every label still clears WCAG AA — a
+   single mid-tone mint cannot be both a pretty wash and legible text, so it isn't asked to be.
 
-   The accent is cerulean because the other hues are spoken for. Status owns mint at 162deg,
-   apricot at 33deg and rose at 349deg, and an accent that lands near any of them makes "primary
-   action" and "system state" the same signal. Cerulean at 208deg is 46deg clear of the nearest
-   and far from the other two — it is the open space on this wheel, not a taste preference.
+   The accent is charcoal, and it is the only member of this palette with no hue at all. That is
+   the point rather than an absence of one. Status owns mint at 162deg, apricot at 33deg and rose
+   at 349deg, so any *chromatic* accent has to be argued into a gap between them — and the two
+   gaps a "premium" brief reaches for are the worst on offer: terracotta lands about 13deg from
+   the healing apricot and would kill the healing state as an event, and clay sits near enough to
+   rose to blur "primary action" into "critical". A neutral cannot collide with a reserved hue by
+   construction, so the argument never has to be made. Hue is left to mean status and nothing
+   else, and the accent asserts itself with weight and contrast instead.
 
    Every value below was checked with a contrast script before it landed. The ratios in the
    comments are measured, not aspirational; if you change a value, re-measure the pair it is
@@ -30,7 +33,7 @@
 
 :root {
   /* --- Surfaces & ink — §2.1 (light column) ------------------------------------------- */
-  --plane: #f6f8fa; /* soft off-white · page plane, cooled a shade toward the accent */
+  --plane: #f6f8fa; /* soft off-white · page plane, a hair cool so the charcoal reads as slate */
   --surface: #ffffff; /* white     · card surface */
   --raised: #ffffff; /* white     · dropdown menus */
   --hairline: #e3e7ec; /* every border, always 1px */
@@ -39,18 +42,32 @@
   --ink-muted: #68717f; /* axis, meta, timestamps     ·  4.9:1 on surface, 4.6:1 on plane */
 
   /* --- Accents — §2.2 ------------------------------------------------------------------
-     Muted cerulean. `--accent` is the *ink* form: link text, active nav, focus ring, the logo
-     mark — it has to be readable, so it is the deepest of the family. `--accent-fill` is the
-     pastel form: the primary button's surface, which carries `--accent-ink` rather than white.
-     A white label on a genuinely pastel fill is unreadable at any weight, and darkening the
-     fill until white works turns the pastel back into a saturated mid-blue. */
-  --accent: #25679f; /* cerulean ink   · 6.0:1 on surface, 5.6:1 on plane, 6.0:1 under white */
-  --accent-hover: #1d5788;
-  --accent-fill: #d3e6f5; /* pastel cerulean · primary button surface */
-  --accent-fill-hover: #c0dcf1;
-  --accent-border: #a5cbe6; /* 1px edge that keeps the button a shape, not a smudge */
-  --accent-ink: #1b4c76; /* label on --accent-fill · 7.0:1 */
-  --accent-plane: #eef5fb; /* active nav wash        · accent reads 5.4:1 on it */
+     Charcoal. `--accent` is the *ink* form: link text, active nav, focus ring, the logo mark,
+     the chart series. `--accent-fill` is the primary button's surface — and alone in this
+     palette it is not a pastel wash but the accent itself, carrying a white label.
+
+     That suspends the pastel/ink split above, deliberately and only here. The split exists
+     because a saturated mid-tone can be a soft fill or legible text but not both; charcoal has
+     no such problem. White on this fill measures 11.6:1, against the 7.0:1 of the deepest label
+     the old pastel cerulean fill could carry — going solid buys contrast rather than spending
+     it, which is what makes it the right answer for a flat system with no shadows to lean on.
+
+     Chroma is held at 10% saturation. Somewhere below ~15% the eye stops naming a hue and reads
+     "graphite"; that threshold is the whole brief, because a slate blue at 30% is still a blue. */
+  --accent: #37393d; /* charcoal ink · 11.6:1 on surface, 10.9:1 on plane, 11.6:1 under white */
+  --accent-hover: #24262a;
+  --accent-fill: #37393d; /* primary button surface · solid, not a wash */
+  --accent-fill-hover: #24262a;
+  --accent-border: #2c2e32; /* a shade deeper than the fill, so the button keeps a crisp edge */
+  --accent-ink: #ffffff; /* label on --accent-fill · 11.6:1 */
+  --accent-plane: #dfe3e8; /* active nav wash · accent reads 9.0:1 on it, 1.21:1 against plane */
+
+  /* The tour chip (§3). A neutral wash cannot separate itself from a neutral plane by hue, so it
+     does it by lightness — hence a wash one clear step darker than the old cerulean one, plus a
+     border that is actually visible. `-strong` is the peak of the chip's attention pulse, and
+     is never a resting colour. */
+  --accent-plane-strong: #d2d7de; /* pulse peak      · accent still 8.0:1 on it */
+  --accent-plane-border: #c4cbd4; /* the chip's edge · 1.54:1 on plane, so it reads as an edge */
 
   /* Pastel mint replaces the emerald success family. Same split: a wash to read, an ink to
      write on it. */
@@ -104,6 +121,8 @@
   --color-accent-border: var(--accent-border);
   --color-accent-ink: var(--accent-ink);
   --color-accent-plane: var(--accent-plane);
+  --color-accent-plane-strong: var(--accent-plane-strong);
+  --color-accent-plane-border: var(--accent-plane-border);
   --color-success: var(--success);
   --color-success-ink: var(--success-ink);
   --color-success-plane: var(--success-plane);
@@ -176,7 +195,7 @@
     border-color: var(--hairline);
   }
 
-  /* Focus ring on every interactive element — cerulean, 2px offset (§8). */
+  /* Focus ring on every interactive element — charcoal, 2px offset (§8). */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -194,6 +213,41 @@
   /* Healing dot pulse — opacity 1 → 0.55 → 1 over 1.6s, on the DOT only, never the text (§4). */
   .dot-pulse {
     animation: weaver-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* ----------------------------------------------------------------------------------------
+     The tour chip's attention pulse (§3).
+
+     Bounded to four iterations — roughly seven seconds — so it is an introduction rather than a
+     permanently blinking control. A pulse with no end state is the thing every design system
+     bans, and rightly: it never stops asking, so it stops being asked *about*. This one says
+     "here" and then settles into an ordinary button.
+
+     It animates background and border, never opacity: dimming the whole chip would take the
+     label with it, and §4's dot rule exists precisely because pulsing text is unreadable. The
+     resting colours are restated in the 0%/100% frames so the chip lands exactly on its base
+     state when the animation ends and the class is later removed.
+
+     Interaction cancels it. Once someone has hovered or focused the chip, they have found it,
+     and continuing to wave is noise — `Sidebar` drops the class entirely once the tour has been
+     opened, so it never replays for someone who has already taken it. */
+  .tour-pulse {
+    animation: weaver-attention 1.8s ease-in-out 4;
+  }
+
+  /* The chip's dot rides the parent's clock rather than carrying `.dot-pulse`, which is infinite
+     by design because the states it marks — scraping, healing — genuinely have not finished yet.
+     This one marks an invitation, so it has to end when the invitation does. Driving it from the
+     parent also means "is the chip pulsing?" has exactly one answer in exactly one place. */
+  .tour-pulse .tour-dot {
+    animation: weaver-pulse 1.8s ease-in-out 4;
+  }
+
+  .tour-pulse:hover,
+  .tour-pulse:focus-visible,
+  .tour-pulse:hover .tour-dot,
+  .tour-pulse:focus-visible .tour-dot {
+    animation: none;
   }
 
   /* Badge state transitions cross-fade over 200ms. No slide, no bounce (§4). */
@@ -232,6 +286,18 @@
   }
 }
 
+@keyframes weaver-attention {
+  0%,
+  100% {
+    background-color: var(--accent-plane);
+    border-color: var(--accent-plane-border);
+  }
+  50% {
+    background-color: var(--accent-plane-strong);
+    border-color: var(--accent);
+  }
+}
+
 @keyframes weaver-pulse {
   0%,
   100% {
@@ -263,7 +329,9 @@
    one. */
 @media (prefers-reduced-motion: reduce) {
   .dot-pulse,
-  .skeleton {
+  .skeleton,
+  .tour-pulse,
+  .tour-pulse .tour-dot {
     animation: none;
   }
 

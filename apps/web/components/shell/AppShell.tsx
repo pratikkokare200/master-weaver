@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { CloseIcon, MenuIcon } from '@/components/icons';
 import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
@@ -27,6 +27,19 @@ export function AppShell({
   // first screen should be populated and quiet.
   const [tourOpen, setTourOpen] = useState(false);
 
+  // Whether the tour launcher is still waving. It stops the first time the tour is opened: an
+  // attention cue that outlives its own success is just a control that blinks forever.
+  //
+  // Session state on purpose — not localStorage. The cue exists for someone meeting this product
+  // for the first time, including a judge watching a fresh recording, and a flag persisted during
+  // a rehearsal is exactly how it would fail to appear on the take that counts.
+  const [tourOpened, setTourOpened] = useState(false);
+
+  const startTour = useCallback(() => {
+    setTourOpened(true);
+    setTourOpen(true);
+  }, []);
+
   // Escape closes the drawer — every dismissible layer should answer to it.
   useEffect(() => {
     if (!drawerOpen) return;
@@ -42,7 +55,8 @@ export function AppShell({
       <Sidebar
         collectors={collectors}
         workspaces={workspaces}
-        onStartTour={() => setTourOpen(true)}
+        onStartTour={startTour}
+        pulseTour={!tourOpened}
       />
 
       {drawerOpen ? (
@@ -65,8 +79,9 @@ export function AppShell({
               // spotlight.
               onStartTour={() => {
                 setDrawerOpen(false);
-                setTourOpen(true);
+                startTour();
               }}
+              pulseTour={!tourOpened}
             />
           </div>
         </div>
