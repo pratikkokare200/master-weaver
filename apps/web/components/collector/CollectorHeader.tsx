@@ -32,6 +32,7 @@ export function CollectorHeader({ collector, failedFields = [] }: CollectorHeade
   return (
     <section
       aria-label="Collector summary"
+      data-tour="collector-health"
       className="rounded-card border border-hairline bg-surface"
     >
       <div className="flex flex-col gap-8 p-6 lg:flex-row lg:items-start lg:justify-between">

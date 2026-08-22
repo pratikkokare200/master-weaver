@@ -11,8 +11,13 @@
    The palette is pastel by construction rather than by tint: every hue exists as a *pastel
    plane* (the wash you read as colour) and a *readable ink* (the text or mark drawn on it).
    That split is what lets the surface look soft while every label still clears WCAG AA — a
-   single mid-tone lavender cannot be both a pretty button fill and legible text, so it isn't
+   single mid-tone cerulean cannot be both a pretty button fill and legible text, so it isn't
    asked to be.
+
+   The accent is cerulean because the other hues are spoken for. Status owns mint at 162deg,
+   apricot at 33deg and rose at 349deg, and an accent that lands near any of them makes "primary
+   action" and "system state" the same signal. Cerulean at 208deg is 46deg clear of the nearest
+   and far from the other two — it is the open space on this wheel, not a taste preference.
 
    Every value below was checked with a contrast script before it landed. The ratios in the
    comments are measured, not aspirational; if you change a value, re-measure the pair it is
@@ -25,31 +30,31 @@
 
 :root {
   /* --- Surfaces & ink — §2.1 (light column) ------------------------------------------- */
-  --plane: #f7f6f9; /* soft off-white · page plane, a breath of lavender in the grey */
+  --plane: #f6f8fa; /* soft off-white · page plane, cooled a shade toward the accent */
   --surface: #ffffff; /* white     · card surface */
   --raised: #ffffff; /* white     · dropdown menus */
-  --hairline: #e6e4ee; /* every border, always 1px */
-  --ink: #1e2433; /* dark slate · primary ink   · 15.5:1 on surface */
-  --ink-secondary: #4c5468; /* secondary ink              ·  7.6:1 on surface */
-  --ink-muted: #676f82; /* axis, meta, timestamps     ·  5.0:1 on surface, 4.7:1 on plane */
+  --hairline: #e3e7ec; /* every border, always 1px */
+  --ink: #1c2430; /* dark slate · primary ink   · 15.6:1 on surface */
+  --ink-secondary: #4a5462; /* secondary ink              ·  7.7:1 on surface */
+  --ink-muted: #68717f; /* axis, meta, timestamps     ·  4.9:1 on surface, 4.6:1 on plane */
 
   /* --- Accents — §2.2 ------------------------------------------------------------------
-     Pastel lavender. `--accent` is the *ink* form: link text, active nav, focus ring — it has
-     to be readable, so it is the deepest of the family. `--accent-fill` is the pastel form: the
-     primary button's surface, which carries `--accent-ink` rather than white. A white label on
-     a genuinely pastel fill is unreadable at any weight, and darkening the fill until white
-     works turns the pastel back into indigo. */
-  --accent: #6d5fd4; /* lavender ink   · 5.0:1 on surface, 4.6:1 on plane */
-  --accent-hover: #5b4dc4;
-  --accent-fill: #ded9fa; /* pastel lavender · primary button surface */
-  --accent-fill-hover: #cec7f7;
-  --accent-border: #bfb6f3; /* 1px edge that keeps the button a shape, not a smudge */
-  --accent-ink: #443a94; /* label on --accent-fill · 6.8:1 */
-  --accent-plane: #f5f3fe; /* active nav wash        · accent reads 4.5:1 on it */
+     Muted cerulean. `--accent` is the *ink* form: link text, active nav, focus ring, the logo
+     mark — it has to be readable, so it is the deepest of the family. `--accent-fill` is the
+     pastel form: the primary button's surface, which carries `--accent-ink` rather than white.
+     A white label on a genuinely pastel fill is unreadable at any weight, and darkening the
+     fill until white works turns the pastel back into a saturated mid-blue. */
+  --accent: #25679f; /* cerulean ink   · 6.0:1 on surface, 5.6:1 on plane, 6.0:1 under white */
+  --accent-hover: #1d5788;
+  --accent-fill: #d3e6f5; /* pastel cerulean · primary button surface */
+  --accent-fill-hover: #c0dcf1;
+  --accent-border: #a5cbe6; /* 1px edge that keeps the button a shape, not a smudge */
+  --accent-ink: #1b4c76; /* label on --accent-fill · 7.0:1 */
+  --accent-plane: #eef5fb; /* active nav wash        · accent reads 5.4:1 on it */
 
   /* Pastel mint replaces the emerald success family. Same split: a wash to read, an ink to
      write on it. */
-  --success: #348069; /* mint ink   · 4.7:1 on surface */
+  --success: #317b64; /* mint ink   · 5.1:1 on surface, 4.8:1 on plane */
   --success-ink: #2c7159; /* on success-plane · 5.2:1 */
   --success-plane: #e6f7ef; /* pastel mint wash */
 
@@ -62,7 +67,7 @@
   --healing-plane: #fdf3e6; /* pastel apricot wash */
 
   /* --- Status colors — §5.2. Reserved; never a chart series. --------------------------- */
-  --status-good: #348069; /* FHS ≥ 0.95 — the same mint as success */
+  --status-good: #317b64; /* FHS ≥ 0.95 — the same mint as success */
   --status-warning: #c6883a; /* FHS 0.60–0.95 */
   --status-critical: #bb4459; /* FHS < 0.60 · 5.1:1 on surface, 4.6:1 on its own plane */
   --status-critical-plane: #fdeef1; /* pastel rose wash */
@@ -72,8 +77,13 @@
      hairline is invisible without a drop shadow — and the shadow is exactly what this pass
      removes. Dark slate on pastel separates the layer with contrast, which is cheaper to render
      and reads more crisply than a blur. */
-  --tooltip-plane: #1e2433;
-  --tooltip-ink: #f2f1f6; /* 14.4:1 on tooltip-plane */
+  --tooltip-plane: #1c2430;
+  --tooltip-ink: #f1f4f7; /* 14.6:1 on tooltip-plane */
+
+  /* The tour scrim. Same ink at low alpha as the mobile drawer's scrim — a scrim is the one
+     translucent surface this design keeps, because dimming the page *is* its whole job. It is
+     still flat: no blur behind it, and the spotlight is a hard-edged cut, not a glow. */
+  --scrim: rgb(28 36 48 / 0.45);
 }
 
 @theme inline {
@@ -166,7 +176,7 @@
     border-color: var(--hairline);
   }
 
-  /* Focus ring on every interactive element — lavender, 2px offset (§8). */
+  /* Focus ring on every interactive element — cerulean, 2px offset (§8). */
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;

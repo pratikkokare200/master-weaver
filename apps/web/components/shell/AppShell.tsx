@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { CloseIcon, MenuIcon } from '@/components/icons';
 import { Sidebar, SidebarContent } from '@/components/shell/Sidebar';
 import type { SidebarData } from '@/components/shell/Sidebar';
+import { ProductTour } from '@/components/tour/ProductTour';
 
 /**
  * App frame — 240px fixed rail beside a content column capped at 1440px (doc 05 §3).
@@ -19,6 +20,13 @@ export function AppShell({
 }: { children: React.ReactNode } & SidebarData) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // The tour is owned here because it is the highest client component in the tree, and its overlay
+  // has to sit above the drawer as well as the page. It is opt-in: nothing auto-starts it on first
+  // visit. An overlay that appears unbidden on the landing screen is the one thing guaranteed to
+  // land in the middle of a demo recording (doc 04), and this product's whole posture is that the
+  // first screen should be populated and quiet.
+  const [tourOpen, setTourOpen] = useState(false);
+
   // Escape closes the drawer — every dismissible layer should answer to it.
   useEffect(() => {
     if (!drawerOpen) return;
@@ -31,7 +39,11 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-plane">
-      <Sidebar collectors={collectors} workspaces={workspaces} />
+      <Sidebar
+        collectors={collectors}
+        workspaces={workspaces}
+        onStartTour={() => setTourOpen(true)}
+      />
 
       {drawerOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -49,6 +61,12 @@ export function AppShell({
               collectors={collectors}
               workspaces={workspaces}
               onNavigate={() => setDrawerOpen(false)}
+              // Close the drawer first: it covers the very elements the tour is about to
+              // spotlight.
+              onStartTour={() => {
+                setDrawerOpen(false);
+                setTourOpen(true);
+              }}
             />
           </div>
         </div>
@@ -73,6 +91,8 @@ export function AppShell({
           {children}
         </main>
       </div>
+
+      {tourOpen ? <ProductTour onClose={() => setTourOpen(false)} /> : null}
     </div>
   );
 }

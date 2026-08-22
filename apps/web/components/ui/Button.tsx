@@ -7,13 +7,13 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 /**
- * The one accent, used sparingly (doc 05 §1). `primary` is pastel lavender and there should be at
+ * The one accent, used sparingly (doc 05 §1). `primary` is pastel cerulean and there should be at
  * most one on screen at a time; everything else is a hairline-bordered secondary or a ghost.
  *
- * The primary button is a pastel *fill* carrying a deep lavender label, not a saturated fill
+ * The primary button is a pastel *fill* carrying a deep cerulean label, not a saturated fill
  * carrying white. White on a genuinely pastel surface is unreadable, and darkening the fill until
  * white works turns the pastel back into the indigo this palette replaced — so the label goes dark
- * instead. The 1px lavender border is what keeps the result a button rather than a soft patch of
+ * instead. The 1px cerulean border is what keeps the result a button rather than a soft patch of
  * colour: with shadows gone, the edge is the only thing asserting the shape.
  *
  * Minimum touch target is 36px tall in dense contexts and 44px for standalone actions (§8).

@@ -182,6 +182,15 @@ export function ExternalIcon(props: IconProps) {
   );
 }
 
+export function CompassIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.5 8.5l-2.2 4.8-4.8 2.2 2.2-4.8 4.8-2.2z" />
+    </Svg>
+  );
+}
+
 export function DownloadIcon(props: IconProps) {
   return (
     <Svg {...props}>

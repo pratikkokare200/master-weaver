@@ -43,14 +43,15 @@ shared component library.
 
 | Role | Light | Dark | Note |
 |---|---|---|---|
-| Page plane | `#f7f6f9` | `#14161d` | soft off-white, a breath of lavender in the grey |
-| Card surface | `#ffffff` | `#1b1e27` | |
-| Raised surface (dropdown) | `#ffffff` | `#232733` | |
-| Hairline border | `#e6e4ee` | `#2b2f3c` | every border, always 1px |
-| Primary ink | `#1e2433` | `#f2f1f6` | dark slate · 15.5:1 on card surface |
-| Secondary ink | `#4c5468` | `#a8afc0` | 7.6:1 on card surface |
-| Muted ink (axis, meta, timestamps) | `#676f82` | `#7f8798` | 5.0:1 on surface, 4.7:1 on plane |
-| Tooltip plane / ink | `#1e2433` / `#f2f1f6` | inverted | 14.4:1 |
+| Page plane | `#f6f8fa` | `#14171d` | soft off-white, cooled a shade toward the accent |
+| Card surface | `#ffffff` | `#1b1f27` | |
+| Raised surface (dropdown) | `#ffffff` | `#232833` | |
+| Hairline border | `#e3e7ec` | `#2b303c` | every border, always 1px |
+| Primary ink | `#1c2430` | `#f1f4f7` | dark slate · 15.6:1 on card surface |
+| Secondary ink | `#4a5462` | `#a8b0c0` | 7.7:1 on card surface |
+| Muted ink (axis, meta, timestamps) | `#68717f` | `#7f8898` | 4.9:1 on surface, 4.6:1 on plane |
+| Tooltip plane / ink | `#1c2430` / `#f1f4f7` | inverted | 14.6:1 |
+| Tour scrim | `rgb(28 36 48 / 0.45)` | same | the one translucent surface in the system |
 
 The dark column is indicative until Day 5 actually builds it; only the light column is shipped.
 
@@ -63,18 +64,25 @@ Every accent hue exists twice: as a **pastel plane** — the wash you read as co
 **readable ink** drawn on it. That split is the whole trick. A single mid-tone cannot be both a soft
 button fill and legible text, so neither job is asked of one value: the fill stays genuinely pastel
 and the label on it goes dark, rather than the fill darkening until white text survives (which is
-how a pastel turns back into indigo).
+how a pastel turns back into a saturated mid-blue).
+
+**The accent is cerulean because the other hues are spoken for.** Status owns mint at 162°, apricot
+at 33° and rose at 349°. An accent near any of them makes "primary action" and "system state" the
+same signal, which is the one confusion this palette exists to prevent — a peach primary button sits
+11° from the healing apricot and would kill the healing state as an event. Cerulean at 208° is 46°
+clear of the nearest reserved hue and far from the other two. This is the open space on the wheel,
+not a preference.
 
 | Role | Hex | Used for — and nothing else |
 |---|---|---|
-| Accent ink | `#6d5fd4` | link text, active nav, focus ring · 5.0:1 on surface |
-| Accent ink hover | `#5b4dc4` | |
-| Accent fill | `#ded9fa` | pastel lavender · the primary button's surface |
-| Accent fill hover | `#cec7f7` | |
-| Accent border | `#bfb6f3` | the primary button's 1px edge |
-| Accent label | `#443a94` | the label **on** accent fill · 6.8:1 |
-| Accent plane | `#f5f3fe` | active nav wash · accent ink reads 4.5:1 on it |
-| Brand success | `#348069` | pastel mint ink · restored, positive delta · 4.7:1 |
+| Accent ink | `#25679f` | link text, active nav, focus ring, logo mark · 6.0:1 on surface |
+| Accent ink hover | `#1d5788` | |
+| Accent fill | `#d3e6f5` | pastel cerulean · the primary button's surface |
+| Accent fill hover | `#c0dcf1` | |
+| Accent border | `#a5cbe6` | the primary button's 1px edge |
+| Accent label | `#1b4c76` | the label **on** accent fill · 7.0:1 |
+| Accent plane | `#eef5fb` | active nav wash · accent ink reads 5.4:1 on it |
+| Brand success | `#317b64` | pastel mint ink · restored, positive delta · 5.1:1 |
 | Success ink / plane | `#2c7159` / `#e6f7ef` | 5.2:1 |
 | Healing / attention | `#c6883a` | The healing state, and **only** the healing state |
 | Healing ink / plane | `#8d5a19` / `#fdf3e6` | 5.3:1 |
@@ -204,7 +212,7 @@ dark   contrast: all ≥ 3:1 → PASS
 
 | Role | Hex | Use |
 |---|---|---|
-| good | `#348069` | FHS ≥ 0.95 |
+| good | `#317b64` | FHS ≥ 0.95 |
 | warning | `#c6883a` | FHS 0.60–0.95 (degraded) |
 | critical | `#bb4459` | FHS < 0.60 (broken) |
 | critical plane | `#fdeef1` | pastel rose wash behind critical text |
@@ -347,6 +355,36 @@ card makes the rule legible before the behaviour is observed, and it's what Beat
 the narration says *"below sixty percent it repairs itself, between sixty and ninety-five a human
 decides."* It also answers "is this configurable?" implicitly, without claiming a toggle that doesn't
 exist. Ten minutes of Flash's time; see ADR-005 for why the toggle itself was deferred.
+
+### ProductTour
+
+Four stops — the command bar, the collector summary, the tab strip, the Chat tab — triggered by
+**Take a tour** in the sidebar footer. Steps bind to the DOM through `data-tour` attributes, so a
+restyle cannot silently break the tour, and a step whose target is missing is dropped before the
+tour starts rather than presenting an empty frame.
+
+Built rather than installed. driver.js and react-joyride each ship a visual language — rounded
+popovers, drop shadows, a glow around the cutout — and matching this system would have meant
+overriding nearly all of it, which is more code than writing the overlay *plus* a dependency whose
+next release can restyle the demo. The same argument `lib/cn.ts` makes about `clsx`, with more at
+stake.
+
+Three rules it inherits from the rest of the system:
+
+- **Flat.** The spotlight is a hard-edged mask cut with a 1px accent stroke. No glow, no blur. The
+  popover is the standard card — surface, hairline, 8px radius — and the progress meter is the same
+  4px track as the credit meter and the health tile.
+- **The scrim is the one translucent surface.** Dimming the page is literally what a scrim is for,
+  and it uses the same ink-at-low-alpha as the existing mobile drawer scrim. Nothing behind it is
+  blurred.
+- **Nothing auto-starts.** The tour is opt-in. An overlay that appears unbidden on the landing
+  screen is guaranteed to land in the middle of a demo recording (doc 04), and §8's whole point is
+  that the first screen should be populated and quiet.
+
+Scrolling frames the target *and* its popover as one unit rather than centring the target alone —
+the summary card is 353px tall beside a 315px popover, and splitting the leftover space in two
+leaves neither half big enough. Where the pair genuinely cannot fit, the popover overlays the target
+and drops its arrow, because an arrow that no longer touches what it points at is worse than none.
 
 ---
 

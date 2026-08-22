@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { ExportMenu, type ExportDataset } from '@/components/collector/ExportMenu';
 import { ChartIcon, ChatIcon, JsonIcon, LedgerIcon, TableIcon } from '@/components/icons';
@@ -13,6 +13,7 @@ import { LedgerPanel } from '@/components/panels/LedgerPanel';
 import { TablePanel } from '@/components/panels/TablePanel';
 import { TooltipBubble } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/cn';
+import { onSelectTab } from '@/lib/tabBus';
 import type { PanelState } from '@/lib/panelState';
 import type { LedgerEpisode, ProductRow } from '@/lib/seed';
 
@@ -118,6 +119,16 @@ export function ObservationTabs({
   const [active, setActive] = useState<TabId>('table');
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
+  // The product tour opens the tab it is about to describe. Guarded against unknown ids so a bad
+  // dispatch cannot put this component into a state with no matching panel.
+  useEffect(
+    () =>
+      onSelectTab((id) => {
+        if (TABS.some((tab) => tab.id === id)) setActive(id as TabId);
+      }),
+    [],
+  );
+
   /** Arrow-key navigation, as the tablist pattern requires. */
   function handleKeyDown(event: React.KeyboardEvent) {
     const index = TABS.findIndex((tab) => tab.id === active);
@@ -141,7 +152,7 @@ export function ObservationTabs({
       {/* The rule and the export control sit OUTSIDE the tablist. A tablist may contain tabs and
           nothing else — a link inside it is announced as a tab that does not behave like one, and
           it lands in the middle of arrow-key navigation. */}
-      <div className="flex items-center border-b border-hairline px-4">
+      <div data-tour="data-tabs" className="flex items-center border-b border-hairline px-4">
         {/* The tablist wraps rather than scrolls on narrow screens. `overflow-x-auto` computes
             `overflow-y` to `auto` as well, which would clip every tab's tooltip at the strip's
             own edge — and five one-word tabs wrap perfectly well. */}
@@ -167,6 +178,7 @@ export function ObservationTabs({
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => setActive(tab.id)}
                 aria-describedby={`tip-${tab.id}`}
+                data-tour={tab.id === 'chat' ? 'chat-tab' : undefined}
                 className={cn(
                   'group relative inline-flex min-h-12 shrink-0 items-center gap-2 border-b px-4 text-body transition-colors',
                   // The active marker is a 1px border, never 2px — borders are hairlines here too.

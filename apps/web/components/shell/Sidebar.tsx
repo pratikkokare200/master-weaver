@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { PlusIcon, WorkspaceIcon } from '@/components/icons';
+import { CompassIcon, PlusIcon, WorkspaceIcon } from '@/components/icons';
 import { CreditMeter } from '@/components/shell/CreditMeter';
 import { cn } from '@/lib/cn';
 import { CREDIT_BALANCE } from '@/lib/seed';
@@ -59,8 +59,14 @@ export function SidebarContent({
   collectors,
   workspaces,
   onNavigate,
-}: SidebarData & { onNavigate?: () => void }) {
+  onStartTour,
+}: SidebarData & { onNavigate?: () => void; onStartTour?: () => void }) {
   const pathname = usePathname();
+
+  // Every stop on the tour is on a collector page, so the trigger only appears there. A button that
+  // starts a tour with nothing to point at is worse than no button — and the landing route redirects
+  // to a collector, so this is visible on every screen a visitor actually lands on.
+  const canTour = pathname.startsWith('/c/');
 
   return (
     <div className="flex h-full flex-col">
@@ -126,17 +132,38 @@ export function SidebarContent({
         </button>
       </nav>
 
+      {canTour && onStartTour ? (
+        <div className="border-t border-hairline p-2">
+          <button
+            type="button"
+            onClick={onStartTour}
+            className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-body text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
+          >
+            <CompassIcon size={15} className="shrink-0 text-ink-muted" />
+            Take a tour
+          </button>
+        </div>
+      ) : null}
+
       <CreditMeter {...CREDIT_BALANCE} />
     </div>
   );
 }
 
 /** Static desktop rail. Hidden below the tablet breakpoint, where the drawer takes over. */
-export function Sidebar({ collectors, workspaces }: SidebarData) {
+export function Sidebar({
+  collectors,
+  workspaces,
+  onStartTour,
+}: SidebarData & { onStartTour?: () => void }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-hairline bg-plane md:block">
       <div className="sticky top-0 h-screen">
-        <SidebarContent collectors={collectors} workspaces={workspaces} />
+        <SidebarContent
+          collectors={collectors}
+          workspaces={workspaces}
+          onStartTour={onStartTour}
+        />
       </div>
     </aside>
   );
